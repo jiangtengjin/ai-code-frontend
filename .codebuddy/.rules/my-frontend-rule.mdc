@@ -1,0 +1,7 @@
+---
+description: 
+globs:
+alwaysApply: false
+---
+# my-frontend-rule.mdc
+生成前端 vue 代码时，使用 vue3 的组合式 api 语法
