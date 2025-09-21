@@ -6,6 +6,7 @@ import UserRegisterPage from '@/pages/user/UserRegisterPage.vue'
 import UserManagePage from '@/pages/admin/UserManagePage.vue'
 import NoAuthPage from '@/pages/NoAuthPage.vue'
 import NotFoundPage from '@/pages/NotFoundPage.vue'
+import UserCenterPage from '@/pages/user/UserCenterPage.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -24,6 +25,11 @@ const router = createRouter({
       path: '/user/register',
       name: '用户注册',
       component: UserRegisterPage,
+    },
+    {
+      path: '/user/center',
+      name: '用户中心',
+      component: UserCenterPage,
     },
     {
       path: '/admin/userManage',

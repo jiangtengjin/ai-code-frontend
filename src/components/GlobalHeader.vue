@@ -30,6 +30,10 @@
               </a-space>
               <template #overlay>
                 <a-menu>
+                  <a-menu-item @click="router.push('/user/center')">
+                    <UserOutlined />
+                    个人中心
+                  </a-menu-item>
                   <a-menu-item @click="doLogout">
                     <LogoutOutlined />
                     退出登录
@@ -48,13 +52,14 @@
 </template>
 
 <script setup lang="ts">
-import { h, ref, computed } from 'vue'
+import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import type { MenuProps } from 'ant-design-vue'
 import { useLoginUserStore } from '@/stores/loginUser'
-import { LogoutOutlined, HomeOutlined } from '@ant-design/icons-vue'
 import { message } from 'ant-design-vue'
 import { userLogout } from '@/api/userController'
+import checkAuth from '@/auth/checkAuth'
+import { menuConfigs, menuToRouteItem, type MenuConfig } from '@/config/menuConfig'
 
 // 获取登录用户信息
 const loginUserStore = useLoginUserStore()
@@ -67,37 +72,45 @@ router.afterEach((to, from, next) => {
   selectedKeys.value = [to.path]
 })
 
-// 菜单配置项
-const originItems = [
-  {
-    key: '/',
-    icon: () => h(HomeOutlined),
-    label: '主页',
-    title: '主页',
-  },
-  {
-    key: '/admin/userManage',
-    label: '用户管理',
-    title: '用户管理',
-  },
-]
+/**
+ * 过滤菜单项 - 基于权限配置
+ * @param menus 菜单配置数组
+ * @returns 过滤后的菜单项
+ */
+const filterMenus = (menus: MenuConfig[]) => {
+  return menus.filter((menu) => {
+    // 转换为路由项格式
+    const item = menuToRouteItem(menu)
 
-// 过滤菜单项
-const filterMenus = (menus = [] as MenuProps['items']) => {
-  return menus?.filter((menu) => {
-    const menuKey = menu?.key as string
-    if (menuKey?.startsWith('/admin')) {
-      const loginUser = loginUserStore.loginUser
-      if (!loginUser || loginUser.userRole !== 'admin') {
-        return false
-      }
+    // 如果设置了在菜单中隐藏，则过滤掉
+    if (item.meta?.hideInMenu) {
+      return false
     }
-    return true
+
+    // 根据权限过滤菜单，有权限则返回 true，则保留该菜单
+    return checkAuth(loginUserStore.loginUser, item.meta?.access as string)
   })
 }
 
+/**
+ * 将菜单配置转换为 Ant Design Vue 菜单项格式
+ * @param menus 过滤后的菜单配置
+ * @returns Ant Design Vue 菜单项
+ */
+const convertToMenuItems = (menus: MenuConfig[]): MenuProps['items'] => {
+  return menus.map((menu) => ({
+    key: menu.key,
+    label: menu.label,
+    title: menu.title,
+    icon: menu.icon,
+  }))
+}
+
 // 展示在菜单的路由数组
-const menuItems = computed<MenuProps['items']>(() => filterMenus(originItems))
+const menuItems = computed<MenuProps['items']>(() => {
+  const filteredMenus = filterMenus(menuConfigs)
+  return convertToMenuItems(filteredMenus)
+})
 
 // 处理菜单点击
 const handleMenuClick: MenuProps['onClick'] = (e) => {
