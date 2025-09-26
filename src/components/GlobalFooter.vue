@@ -28,6 +28,8 @@
   bottom: 0;
   left: 0;
   right: 0;
+  z-index: 10;
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .copyright {

@@ -27,6 +27,8 @@ import GlobalFooter from '@/components/GlobalFooter.vue'
   width: 100%;
   padding: 24px;
   background: white;
-  margin: 16px auto 56px;
+  margin: 16px auto 0;
+  padding-bottom: 80px; /* 为固定底部留出空间 */
+  min-height: calc(100vh - 140px); /* 确保内容区域有足够高度 */
 }
 </style>

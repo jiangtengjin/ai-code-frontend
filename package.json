@@ -17,14 +17,18 @@
     "format": "prettier --write src/"
   },
   "dependencies": {
+    "@types/markdown-it": "^14.1.2",
     "ant-design-vue": "^4.2.6",
     "axios": "^1.12.2",
+    "highlight.js": "^11.11.1",
+    "markdown-it": "^14.1.0",
     "pinia": "^3.0.3",
     "vue": "^3.5.18",
     "vue-router": "^4.5.1"
   },
   "devDependencies": {
     "@tsconfig/node22": "^22.0.2",
+    "@types/highlight.js": "^9.12.4",
     "@types/node": "^22.16.5",
     "@umijs/openapi": "^1.14.1",
     "@vitejs/plugin-vue": "^6.0.1",

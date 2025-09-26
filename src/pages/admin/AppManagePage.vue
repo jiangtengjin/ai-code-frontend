@@ -65,10 +65,7 @@
           {{ dayjs(record.createTime).format('YYYY-MM-DD HH:mm:ss') }}
         </template>
         <template v-else-if="column.dataIndex === 'user'">
-          <div class="user-info">
-            <a-avatar :src="record.user?.userAvatar" size="small" />
-            <span>{{ record.user?.userName || '未知用户' }}</span>
-          </div>
+          <span>{{ record.user?.userName || '未知用户' }}</span>
         </template>
         <template v-else-if="column.key === 'action'">
           <a-space>
@@ -267,6 +264,8 @@ const deleteApp = async (id: number | undefined) => {
 <style scoped>
 #appManagePage {
   padding: 24px;
+  padding-bottom: 80px; /* 为固定底部留出空间 */
+  min-height: calc(100vh - 120px); /* 确保页面有足够高度 */
 }
 
 .no-cover {
@@ -288,11 +287,7 @@ const deleteApp = async (id: number | undefined) => {
   white-space: nowrap;
 }
 
-.user-info {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
+
 
 .text-gray {
   color: #999;

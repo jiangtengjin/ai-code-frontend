@@ -41,10 +41,10 @@
             </div>
             <div v-else class="ai-message">
               <div class="message-avatar">
-                <a-avatar style="background-color: #1890ff">AI</a-avatar>
+                <a-avatar :src="aiAvatarSvg" class="ai-avatar" size="small">AI</a-avatar>
               </div>
               <div class="message-content">
-                <div v-if="message.content" class="message-text">{{ message.content }}</div>
+                <div v-if="message.content" class="message-text markdown-content" v-html="renderMarkdown(message.content)"></div>
                 <div v-if="message.loading" class="loading-indicator">
                   <a-spin size="small" />
                   <span>AI 正在思考...</span>
@@ -60,7 +60,7 @@
             <a-tooltip v-if="!isOwner" title="无法在别人的作品下对话哦~" placement="top">
               <a-textarea
                 v-model:value="userInput"
-                placeholder="描述你想要的修改..."
+                placeholder="请描述你想生成的网站，越详细效果越好哦"
                 :rows="3"
                 :maxlength="1000"
                 @keydown.enter.prevent="sendMessage"
@@ -70,7 +70,7 @@
             <a-textarea
               v-else
               v-model:value="userInput"
-              placeholder="描述你想要的修改..."
+              placeholder="请描述你想生成的网站，越详细效果越好哦"
               :rows="3"
               :maxlength="1000"
               @keydown.enter.prevent="sendMessage"
@@ -93,82 +93,24 @@
       </div>
 
       <!-- 右侧网页展示区域 -->
-      <div class="preview-section">
-        <div class="preview-header">
-          <h3>生成后的网页展示</h3>
-          <div class="preview-actions">
-            <a-button v-if="previewUrl" type="link" @click="openInNewTab">
-              <template #icon>
-                <ExportOutlined />
-              </template>
-              新窗口打开
-            </a-button>
-          </div>
-        </div>
-        <div class="preview-content">
-          <div v-if="!previewUrl && !isGenerating" class="preview-placeholder">
-            <div class="placeholder-icon">🌐</div>
-            <p>网站文件生成完成后将在这里展示</p>
-          </div>
-          <div v-else-if="isGenerating" class="preview-loading">
-            <a-spin size="large" />
-            <p>正在生成网站...</p>
-          </div>
-          <iframe
-            v-else
-            :src="previewUrl"
-            class="preview-iframe"
-            frameborder="0"
-            @load="onIframeLoad"
-          ></iframe>
-        </div>
-      </div>
+      <AppPreview
+        :url="previewUrl"
+        :loading="isGenerating"
+        title="生成后的网页展示"
+        placeholder-text="网站文件生成完成后将在这里展示"
+        loading-text="正在生成网站..."
+        class="preview-section"
+      />
     </div>
 
     <!-- 应用详情弹窗 -->
-    <a-modal v-model:open="appDetailVisible" title="应用详情" :footer="null" width="500px">
-      <div class="app-detail-content">
-        <!-- 应用基础信息 -->
-        <div class="app-basic-info">
-          <div class="info-item">
-            <span class="info-label">创建者：</span>
-            <div class="creator-info">
-              <a-avatar :src="appInfo?.user?.userAvatar" size="small" />
-              <span class="creator-name">{{ appInfo?.user?.userName || '未知用户' }}</span>
-            </div>
-          </div>
-          <div class="info-item">
-            <span class="info-label">创建时间：</span>
-            <span>{{ formatTime(appInfo?.createTime) }}</span>
-          </div>
-        </div>
-
-        <!-- 操作栏（仅本人或管理员可见） -->
-        <div v-if="isOwner || isAdmin" class="app-actions">
-          <a-space>
-            <a-button type="primary" @click="editApp">
-              <template #icon>
-                <EditOutlined />
-              </template>
-              修改
-            </a-button>
-            <a-popconfirm
-              title="确定要删除这个应用吗？"
-              @confirm="deleteApp"
-              ok-text="确定"
-              cancel-text="取消"
-            >
-              <a-button danger>
-                <template #icon>
-                  <DeleteOutlined />
-                </template>
-                删除
-              </a-button>
-            </a-popconfirm>
-          </a-space>
-        </div>
-      </div>
-    </a-modal>
+    <AppDetailModal
+      v-model:visible="appDetailVisible"
+      :app="appInfo"
+      :show-actions="isOwner || isAdmin"
+      @edit="editApp"
+      @delete="deleteApp"
+    />
 
     <!-- 部署成功弹窗 -->
     <a-modal v-model:open="deployModalVisible" title="部署成功" :footer="null" width="600px">
@@ -209,22 +151,49 @@ import {
 import { CodeGenTypeEnum } from '@/utils/codeGenTypes'
 import request from '@/request'
 import dayjs from 'dayjs'
+import MarkdownIt from 'markdown-it'
+import hljs from 'highlight.js'
+import 'highlight.js/styles/github.css'
+import aiAvatarSvg from '@/assets/aiAvatar.svg'
+import { ENV_CONFIG } from '@/config/env'
+import AppPreview from '@/components/AppPreview.vue'
+import AppDetailModal from '@/components/AppDetailModal.vue'
 
 import {
   ArrowLeftOutlined,
   CloudUploadOutlined,
   SendOutlined,
-  ExportOutlined,
   CheckCircleOutlined,
   CopyOutlined,
   InfoCircleOutlined,
-  EditOutlined,
-  DeleteOutlined,
 } from '@ant-design/icons-vue'
 
 const route = useRoute()
 const router = useRouter()
 const loginUserStore = useLoginUserStore()
+
+// Markdown 渲染器配置
+const md: MarkdownIt = new MarkdownIt({
+  html: true,
+  linkify: true,
+  typographer: true,
+  highlight: function (str: string, lang: string): string {
+    if (lang && hljs.getLanguage(lang)) {
+      try {
+        return '<pre class="hljs"><code>' +
+               hljs.highlight(str, { language: lang, ignoreIllegals: true }).value +
+               '</code></pre>'
+      } catch (__) {}
+    }
+    return '<pre class="hljs"><code>' + md.utils.escapeHtml(str) + '</code></pre>'
+  }
+})
+
+// 渲染 Markdown 内容
+const renderMarkdown = (content: string): string => {
+  if (!content) return ''
+  return md.render(content)
+}
 
 // 应用信息
 const appInfo = ref<API.AppVO>()
@@ -366,7 +335,7 @@ const generateCode = async (userMessage: string, aiMessageIndex: number) => {
 
   try {
     // 获取 axios 配置的 baseURL
-    const baseURL = request.defaults.baseURL || 'http://localhost:8123/api'
+    const baseURL = request.defaults.baseURL
 
     // 构建URL参数
     const params = new URLSearchParams({
@@ -456,7 +425,7 @@ const handleError = (error: unknown, aiMessageIndex: number) => {
 const updatePreview = () => {
   if (appId.value) {
     const codeGenType = appInfo.value?.codeGenType || CodeGenTypeEnum.HTML
-    const newPreviewUrl = `http://localhost:8123/api/static/${codeGenType}_${appId.value}/`
+    const newPreviewUrl = `${ENV_CONFIG.PREVIEW_BASE_URL}/${codeGenType}_${appId.value}/`
     previewUrl.value = newPreviewUrl
     previewReady.value = true
   }
@@ -502,12 +471,7 @@ const deployApp = async () => {
   }
 }
 
-// 在新窗口打开预览
-const openInNewTab = () => {
-  if (previewUrl.value) {
-    window.open(previewUrl.value, '_blank')
-  }
-}
+
 
 // 打开部署的网站
 const openDeployedSite = () => {
@@ -525,11 +489,6 @@ const copyUrl = async () => {
     console.error('复制失败：', error)
     message.error('复制失败')
   }
-}
-
-// iframe加载完成
-const onIframeLoad = () => {
-  previewReady.value = true
 }
 
 // 格式化时间
@@ -588,7 +547,7 @@ onUnmounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 16px 24px;
+  padding: 12px 16px;
   background: white;
   border-bottom: 1px solid #e8e8e8;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
@@ -616,14 +575,14 @@ onUnmounted(() => {
 .main-content {
   flex: 1;
   display: flex;
-  gap: 16px;
-  padding: 16px;
+  gap: 8px;
+  padding: 8px;
   overflow: hidden;
 }
 
 /* 左侧对话区域 */
 .chat-section {
-  flex: 1;
+  flex: 2;
   display: flex;
   flex-direction: column;
   background: white;
@@ -634,13 +593,13 @@ onUnmounted(() => {
 
 .messages-container {
   flex: 1;
-  padding: 16px;
+  padding: 12px;
   overflow-y: auto;
   scroll-behavior: smooth;
 }
 
 .message-item {
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 
 .user-message {
@@ -675,15 +634,246 @@ onUnmounted(() => {
   color: #1a1a1a;
 }
 
-/* 简单的文本样式 */
-.message-content {
-  white-space: pre-wrap;
+/* Markdown 内容样式 */
+.markdown-content {
+  white-space: normal;
   word-wrap: break-word;
-  line-height: 1.5;
+  line-height: 1.6;
+}
+
+/* Markdown 基础样式 */
+.markdown-content h1,
+.markdown-content h2,
+.markdown-content h3,
+.markdown-content h4,
+.markdown-content h5,
+.markdown-content h6 {
+  margin: 16px 0 8px 0;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.markdown-content h1 {
+  font-size: 1.5em;
+  border-bottom: 1px solid #e1e4e8;
+  padding-bottom: 8px;
+}
+
+.markdown-content h2 {
+  font-size: 1.25em;
+  border-bottom: 1px solid #e1e4e8;
+  padding-bottom: 6px;
+}
+
+.markdown-content h3 {
+  font-size: 1.1em;
+}
+
+.markdown-content p {
+  margin: 8px 0;
+}
+
+.markdown-content ul,
+.markdown-content ol {
+  margin: 8px 0;
+  padding-left: 20px;
+}
+
+.markdown-content li {
+  margin: 4px 0;
+}
+
+.markdown-content blockquote {
+  margin: 8px 0;
+  padding: 8px 16px;
+  border-left: 4px solid #dfe2e5;
+  background-color: #f6f8fa;
+  color: #6a737d;
+}
+
+.markdown-content table {
+  border-collapse: collapse;
+  margin: 8px 0;
+  width: 100%;
+}
+
+.markdown-content th,
+.markdown-content td {
+  border: 1px solid #dfe2e5;
+  padding: 6px 13px;
+}
+
+.markdown-content th {
+  background-color: #f6f8fa;
+  font-weight: 600;
+}
+
+.markdown-content code {
+  background-color: rgba(27, 31, 35, 0.05);
+  border-radius: 3px;
+  font-size: 85%;
+  margin: 0;
+  padding: 0.2em 0.4em;
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+}
+
+.markdown-content pre {
+  background-color: #f6f8fa;
+  border-radius: 6px;
+  font-size: 85%;
+  line-height: 1.45;
+  overflow: auto;
+  padding: 16px;
+  margin: 8px 0;
+}
+
+.markdown-content pre code {
+  background-color: transparent;
+  border: 0;
+  display: inline;
+  line-height: inherit;
+  margin: 0;
+  max-width: auto;
+  overflow: visible;
+  padding: 0;
+  word-wrap: normal;
+}
+
+/* 代码高亮样式增强 */
+.markdown-content .hljs {
+  background: #f6f8fa !important;
+  color: #24292e;
+  border-radius: 6px;
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+}
+
+.markdown-content .hljs-comment,
+.markdown-content .hljs-quote {
+  color: #6a737d;
+  font-style: italic;
+}
+
+.markdown-content .hljs-keyword,
+.markdown-content .hljs-selector-tag,
+.markdown-content .hljs-subst {
+  color: #d73a49;
+}
+
+.markdown-content .hljs-number,
+.markdown-content .hljs-literal,
+.markdown-content .hljs-variable,
+.markdown-content .hljs-template-variable,
+.markdown-content .hljs-tag .hljs-attr {
+  color: #005cc5;
+}
+
+.markdown-content .hljs-string,
+.markdown-content .hljs-doctag {
+  color: #032f62;
+}
+
+.markdown-content .hljs-title,
+.markdown-content .hljs-section,
+.markdown-content .hljs-selector-id {
+  color: #6f42c1;
+  font-weight: bold;
+}
+
+.markdown-content .hljs-type,
+.markdown-content .hljs-class .hljs-title {
+  color: #445588;
+  font-weight: bold;
+}
+
+.markdown-content .hljs-tag,
+.markdown-content .hljs-name,
+.markdown-content .hljs-attribute {
+  color: #22863a;
+}
+
+.markdown-content .hljs-regexp,
+.markdown-content .hljs-link {
+  color: #032f62;
+}
+
+.markdown-content .hljs-symbol,
+.markdown-content .hljs-bullet {
+  color: #990073;
+}
+
+.markdown-content .hljs-built_in,
+.markdown-content .hljs-builtin-name {
+  color: #005cc5;
+}
+
+.markdown-content .hljs-meta {
+  color: #999;
+}
+
+.markdown-content .hljs-deletion {
+  background: #ffeef0;
+}
+
+.markdown-content .hljs-addition {
+  background: #f0fff4;
+}
+
+.markdown-content .hljs-emphasis {
+  font-style: italic;
+}
+
+.markdown-content .hljs-strong {
+  font-weight: bold;
+}
+
+/* 链接样式 */
+.markdown-content a {
+  color: #0366d6;
+  text-decoration: none;
+}
+
+.markdown-content a:hover {
+  text-decoration: underline;
+}
+
+/* 水平分割线 */
+.markdown-content hr {
+  border: none;
+  border-top: 1px solid #e1e4e8;
+  margin: 16px 0;
+}
+
+/* 图片样式 */
+.markdown-content img {
+  max-width: 60%;
+  height: auto;
+  border-radius: 4px;
+  margin: 8px 0;
+}
+
+/* 强调文本 */
+.markdown-content strong {
+  font-weight: 600;
+}
+
+.markdown-content em {
+  font-style: italic;
+}
+
+/* 删除线 */
+.markdown-content del {
+  text-decoration: line-through;
 }
 
 .message-avatar {
   flex-shrink: 0;
+}
+
+/* AI 头像样式 */
+.ai-avatar {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+  border: 2px solid #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 .loading-indicator {
@@ -695,7 +885,7 @@ onUnmounted(() => {
 
 /* 输入区域 */
 .input-container {
-  padding: 16px;
+  padding: 12px;
   border-top: 1px solid #e8e8e8;
   background: white;
 }
@@ -716,110 +906,7 @@ onUnmounted(() => {
 
 /* 右侧预览区域 */
 .preview-section {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  overflow: hidden;
-}
-
-.preview-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px;
-  border-bottom: 1px solid #e8e8e8;
-}
-
-.preview-header h3 {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 600;
-}
-
-.preview-actions {
-  display: flex;
-  gap: 8px;
-}
-
-.preview-content {
-  flex: 1;
-  position: relative;
-  overflow: hidden;
-}
-
-.preview-placeholder {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  color: #666;
-}
-
-.placeholder-icon {
-  font-size: 48px;
-  margin-bottom: 16px;
-}
-
-.preview-loading {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  color: #666;
-}
-
-.preview-loading p {
-  margin-top: 16px;
-}
-
-.preview-iframe {
-  width: 100%;
-  height: 100%;
-  border: none;
-}
-
-/* 应用详情弹窗 */
-.app-detail-content {
-  padding: 8px 0;
-}
-
-.app-basic-info {
-  margin-bottom: 24px;
-}
-
-.app-basic-info h4 {
-  margin: 0 0 16px;
-  font-size: 16px;
-  font-weight: 600;
-  color: #1a1a1a;
-}
-
-.info-item {
-  display: flex;
-  align-items: center;
-  margin-bottom: 12px;
-}
-
-.info-label {
-  width: 80px;
-  color: #666;
-  font-size: 14px;
-}
-
-.creator-info {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.creator-name {
-  font-size: 14px;
-  color: #1a1a1a;
+  flex: 3;
 }
 
 /* 部署成功弹窗 */

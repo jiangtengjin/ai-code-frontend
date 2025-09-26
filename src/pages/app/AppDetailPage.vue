@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 import { getAppVoById, deleteApp } from '@/api/appController'
 import { useLoginUserStore } from '@/stores/loginUser'
+import { ENV_CONFIG } from '@/config/env'
+import AppPreview from '@/components/AppPreview.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -66,11 +68,18 @@ const continueChat = () => {
   router.push(`/app/chat/${app.value.id}`)
 }
 
-// 预览应用
-const previewApp = () => {
+// 预览URL
+const previewUrl = computed(() => {
   if (app.value.codeGenType && app.value.id) {
-    const previewUrl = `http://localhost:8123/api/static/${app.value.codeGenType}_${app.value.id}/`
-    window.open(previewUrl, '_blank')
+    return `${ENV_CONFIG.PREVIEW_BASE_URL}/${app.value.codeGenType}_${app.value.id}/`
+  }
+  return ''
+})
+
+// 打开预览
+const openPreview = () => {
+  if (previewUrl.value) {
+    window.open(previewUrl.value, '_blank')
   }
 }
 
@@ -151,7 +160,7 @@ onMounted(() => {
                 继续对话
               </a-button>
               
-              <a-button @click="previewApp" size="large" v-if="app.codeGenType">
+              <a-button @click="openPreview" size="large" v-if="app.codeGenType">
                 预览应用
               </a-button>
               
@@ -178,13 +187,12 @@ onMounted(() => {
         <!-- 应用预览 -->
         <div class="app-preview-card" v-if="app.codeGenType">
           <h2>应用预览</h2>
-          <div class="preview-container">
-            <iframe 
-              :src="`http://localhost:8123/api/static/${app.codeGenType}_${app.id}/`"
-              class="preview-iframe"
-              frameborder="0"
-            ></iframe>
-          </div>
+          <AppPreview
+            :url="previewUrl"
+            :loading="false"
+            placeholder-text="应用预览加载中..."
+            class="preview-wrapper"
+          />
         </div>
       </div>
     </a-spin>
@@ -320,17 +328,11 @@ onMounted(() => {
   color: #262626;
 }
 
-.preview-container {
+.preview-wrapper {
+  height: 600px;
   border: 1px solid #f0f0f0;
   border-radius: 8px;
   overflow: hidden;
-  height: 600px;
-}
-
-.preview-iframe {
-  width: 100%;
-  height: 100%;
-  border: none;
 }
 
 /* 响应式设计 */
@@ -357,7 +359,7 @@ onMounted(() => {
     flex-direction: column;
   }
   
-  .preview-container {
+  .preview-wrapper {
     height: 400px;
   }
 }
