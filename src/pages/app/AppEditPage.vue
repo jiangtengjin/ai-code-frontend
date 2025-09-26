@@ -1,28 +1,180 @@
+<template>
+  <div id="appEditPage">
+    <div class="page-header">
+      <a-button type="text" @click="goBack">
+        <template #icon>
+          <ArrowLeftOutlined />
+        </template>
+        返回
+      </a-button>
+      <h1>编辑应用信息</h1>
+    </div>
+
+    <div class="edit-container">
+      <a-card title="基本信息" :loading="loading">
+        <a-form
+          :model="formData"
+          :rules="rules"
+          layout="vertical"
+          @finish="handleSubmit"
+          ref="formRef"
+        >
+          <a-form-item label="应用名称" name="appName">
+            <a-input
+              v-model:value="formData.appName"
+              placeholder="请输入应用名称"
+              :maxlength="50"
+              show-count
+            />
+          </a-form-item>
+
+          <a-form-item
+            v-if="isAdmin"
+            label="应用封面"
+            name="cover"
+            extra="支持图片链接，建议尺寸：400x300"
+          >
+            <a-input v-model:value="formData.cover" placeholder="请输入封面图片链接" />
+            <div v-if="formData.cover" class="cover-preview">
+              <a-image
+                :src="formData.cover"
+                :width="200"
+                :height="150"
+                fallback="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="
+              />
+            </div>
+          </a-form-item>
+
+          <a-form-item v-if="isAdmin" label="优先级" name="priority" extra="设置为99表示精选应用">
+            <a-input-number
+              v-model:value="formData.priority"
+              :min="0"
+              :max="99"
+              style="width: 200px"
+            />
+          </a-form-item>
+
+          <a-form-item label="初始提示词" name="initPrompt">
+            <a-textarea
+              v-model:value="formData.initPrompt"
+              placeholder="请输入初始提示词"
+              :rows="4"
+              :maxlength="1000"
+              show-count
+              disabled
+            />
+            <div class="form-tip">初始提示词不可修改</div>
+          </a-form-item>
+
+          <a-form-item label="生成类型" name="codeGenType">
+            <a-input
+              :value="formatCodeGenType(formData.codeGenType)"
+              placeholder="生成类型"
+              disabled
+            />
+            <div class="form-tip">生成类型不可修改</div>
+          </a-form-item>
+
+          <a-form-item v-if="formData.deployKey" label="部署密钥" name="deployKey">
+            <a-input v-model:value="formData.deployKey" placeholder="部署密钥" disabled />
+            <div class="form-tip">部署密钥不可修改</div>
+          </a-form-item>
+
+          <a-form-item>
+            <a-space>
+              <a-button type="primary" html-type="submit" :loading="submitting">
+                保存修改
+              </a-button>
+              <a-button @click="resetForm">重置</a-button>
+              <a-button type="link" @click="goToChat">进入对话</a-button>
+            </a-space>
+          </a-form-item>
+        </a-form>
+      </a-card>
+
+      <!-- 应用信息展示 -->
+      <a-card title="应用信息" style="margin-top: 24px">
+        <a-descriptions :column="2" bordered>
+          <a-descriptions-item label="应用ID">
+            {{ appInfo?.id }}
+          </a-descriptions-item>
+          <a-descriptions-item label="创建者">
+            <div class="user-info">
+              <a-avatar :src="appInfo?.user?.userAvatar" size="small" />
+              <span>{{ appInfo?.user?.userName || '未知用户' }}</span>
+            </div>
+          </a-descriptions-item>
+          <a-descriptions-item label="创建时间">
+            {{ formatTime(appInfo?.createTime) }}
+          </a-descriptions-item>
+          <a-descriptions-item label="更新时间">
+            {{ formatTime(appInfo?.updateTime) }}
+          </a-descriptions-item>
+          <a-descriptions-item label="部署时间">
+            {{ appInfo?.deployedTime ? formatTime(appInfo.deployedTime) : '未部署' }}
+          </a-descriptions-item>
+          <a-descriptions-item label="访问链接">
+            <a-button v-if="appInfo?.deployKey" type="link" @click="openPreview" size="small">
+              查看预览
+            </a-button>
+            <span v-else>未部署</span>
+          </a-descriptions-item>
+        </a-descriptions>
+      </a-card>
+    </div>
+  </div>
+</template>
+
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
-import { getAppVoById, updateApp } from '@/api/appController'
 import { useLoginUserStore } from '@/stores/loginUser'
+import { getAppVoById, updateApp, updateAppByAdmin } from '@/api/appController'
+import { formatCodeGenType } from '@/utils/codeGenTypes'
+import { ArrowLeftOutlined } from '@ant-design/icons-vue'
+import dayjs from 'dayjs'
+import type { FormInstance } from 'ant-design-vue'
 
 const route = useRoute()
 const router = useRouter()
 const loginUserStore = useLoginUserStore()
 
 // 应用信息
-const app = ref<API.AppVO>({})
+const appInfo = ref<API.AppVO>()
 const loading = ref(false)
 const submitting = ref(false)
+const formRef = ref<FormInstance>()
 
 // 表单数据
-const formData = ref({
-  appName: ''
+const formData = reactive({
+  appName: '',
+  cover: '',
+  priority: 0,
+  initPrompt: '',
+  codeGenType: '',
+  deployKey: '',
 })
 
+// 是否为管理员
+const isAdmin = computed(() => {
+  return loginUserStore.loginUser.userRole === 'admin'
+})
+
+// 表单验证规则
+const rules = {
+  appName: [
+    { required: true, message: '请输入应用名称', trigger: 'blur' },
+    { min: 1, max: 50, message: '应用名称长度在1-50个字符', trigger: 'blur' },
+  ],
+  cover: [{ type: 'url', message: '请输入有效的URL', trigger: 'blur' }],
+  priority: [{ type: 'number', min: 0, max: 99, message: '优先级范围0-99', trigger: 'blur' }],
+}
+
 // 获取应用信息
-const loadApp = async () => {
-  const appId = route.params.id as string
-  if (!appId) {
+const fetchAppInfo = async () => {
+  const id = route.params.id as string
+  if (!id) {
     message.error('应用ID不存在')
     router.push('/')
     return
@@ -30,24 +182,30 @@ const loadApp = async () => {
 
   loading.value = true
   try {
-    const res = await getAppVoById({ id: appId as any })
+    const res = await getAppVoById({ id: id as unknown as number })
     if (res.data.code === 0 && res.data.data) {
-      app.value = res.data.data
-      
+      appInfo.value = res.data.data
+
       // 检查权限
-      if (String(app.value.userId) !== String(loginUserStore.loginUser.id)) {
+      if (!isAdmin.value && appInfo.value.userId !== loginUserStore.loginUser.id) {
         message.error('您没有权限编辑此应用')
         router.push('/')
         return
       }
-      
-      // 初始化表单数据
-      formData.value.appName = app.value.appName || ''
+
+      // 填充表单数据
+      formData.appName = appInfo.value.appName || ''
+      formData.cover = appInfo.value.cover || ''
+      formData.priority = appInfo.value.priority || 0
+      formData.initPrompt = appInfo.value.initPrompt || ''
+      formData.codeGenType = appInfo.value.codeGenType || ''
+      formData.deployKey = appInfo.value.deployKey || ''
     } else {
-      message.error('获取应用信息失败：' + res.data.message)
+      message.error('获取应用信息失败')
       router.push('/')
     }
   } catch (error) {
+    console.error('获取应用信息失败：', error)
     message.error('获取应用信息失败')
     router.push('/')
   } finally {
@@ -57,236 +215,136 @@ const loadApp = async () => {
 
 // 提交表单
 const handleSubmit = async () => {
-  if (!app.value.id) return
-
-  if (!formData.value.appName.trim()) {
-    message.error('请输入应用名称')
-    return
-  }
+  if (!appInfo.value?.id) return
 
   submitting.value = true
   try {
-    const res = await updateApp({
-      id: app.value.id,
-      appName: formData.value.appName.trim()
-    })
+    let res
+    if (isAdmin.value) {
+      // 管理员可以修改更多字段
+      res = await updateAppByAdmin({
+        id: appInfo.value.id,
+        appName: formData.appName,
+        cover: formData.cover,
+        priority: formData.priority,
+      })
+    } else {
+      // 普通用户只能修改应用名称
+      res = await updateApp({
+        id: appInfo.value.id,
+        appName: formData.appName,
+      })
+    }
 
     if (res.data.code === 0) {
-      message.success('更新成功')
-      router.push(`/app/detail/${app.value.id}`)
+      message.success('修改成功')
+      // 重新获取应用信息
+      await fetchAppInfo()
     } else {
-      message.error('更新失败：' + res.data.message)
+      message.error('修改失败：' + res.data.message)
     }
   } catch (error) {
-    message.error('更新失败，请重试')
+    console.error('修改失败：', error)
+    message.error('修改失败')
   } finally {
     submitting.value = false
   }
 }
 
-// 取消编辑
-const handleCancel = () => {
+// 重置表单
+const resetForm = () => {
+  if (appInfo.value) {
+    formData.appName = appInfo.value.appName || ''
+    formData.cover = appInfo.value.cover || ''
+    formData.priority = appInfo.value.priority || 0
+  }
+  formRef.value?.clearValidate()
+}
+
+// 返回上一页
+const goBack = () => {
   router.back()
 }
 
+// 进入对话页面
+const goToChat = () => {
+  if (appInfo.value?.id) {
+    router.push(`/app/chat/${appInfo.value.id}`)
+  }
+}
+
+// 打开预览
+const openPreview = () => {
+  if (appInfo.value?.codeGenType && appInfo.value?.id) {
+    const url = `http://localhost:8123/api/static/${appInfo.value.codeGenType}_${appInfo.value.id}/`
+    window.open(url, '_blank')
+  }
+}
+
+// 格式化时间
+const formatTime = (time: string | undefined) => {
+  if (!time) return ''
+  return dayjs(time).format('YYYY-MM-DD HH:mm:ss')
+}
+
+// 页面加载时获取应用信息
 onMounted(() => {
-  loadApp()
+  fetchAppInfo()
 })
 </script>
 
-<template>
-  <div class="app-edit-page">
-    <a-spin :spinning="loading" tip="加载中...">
-      <!-- 页面头部 -->
-      <div class="page-header">
-        <a-button type="text" @click="router.back()" class="back-btn">
-          <template #icon>←</template>
-          返回
-        </a-button>
-        <h1 class="page-title">编辑应用</h1>
-      </div>
-
-      <!-- 编辑表单 -->
-      <div class="edit-content" v-if="app.id">
-        <a-card title="基本信息" class="edit-card">
-          <a-form
-            :model="formData"
-            layout="vertical"
-            @finish="handleSubmit"
-          >
-            <a-form-item
-              label="应用名称"
-              name="appName"
-              :rules="[
-                { required: true, message: '请输入应用名称' },
-                { max: 50, message: '应用名称不能超过50个字符' }
-              ]"
-            >
-              <a-input
-                v-model:value="formData.appName"
-                placeholder="请输入应用名称"
-                size="large"
-              />
-            </a-form-item>
-
-            <!-- 只读信息展示 -->
-            <a-form-item label="应用描述">
-              <a-textarea
-                :value="app.initPrompt"
-                :rows="4"
-                readonly
-                placeholder="应用描述（只读）"
-              />
-              <div class="form-tip">
-                应用描述不可修改，如需修改请重新创建应用
-              </div>
-            </a-form-item>
-
-            <a-form-item label="创建时间">
-              <a-input
-                :value="new Date(app.createTime || '').toLocaleString()"
-                readonly
-                size="large"
-              />
-            </a-form-item>
-
-            <a-form-item label="更新时间">
-              <a-input
-                :value="new Date(app.updateTime || '').toLocaleString()"
-                readonly
-                size="large"
-              />
-            </a-form-item>
-
-            <a-form-item label="应用类型">
-              <a-input
-                :value="app.codeGenType || '网站'"
-                readonly
-                size="large"
-              />
-            </a-form-item>
-
-            <!-- 操作按钮 -->
-            <a-form-item>
-              <div class="form-actions">
-                <a-button @click="handleCancel" size="large">
-                  取消
-                </a-button>
-                <a-button 
-                  type="primary" 
-                  html-type="submit"
-                  :loading="submitting"
-                  size="large"
-                >
-                  保存修改
-                </a-button>
-              </div>
-            </a-form-item>
-          </a-form>
-        </a-card>
-
-        <!-- 应用预览 -->
-        <a-card title="应用预览" class="preview-card" v-if="app.codeGenType">
-          <div class="preview-container">
-            <iframe 
-              :src="`http://localhost:8123/api/static/${app.codeGenType}_${app.id}/`"
-              class="preview-iframe"
-              frameborder="0"
-            ></iframe>
-          </div>
-        </a-card>
-      </div>
-    </a-spin>
-  </div>
-</template>
-
 <style scoped>
-.app-edit-page {
-  max-width: 1200px;
+#appEditPage {
+  padding: 24px;
+  max-width: 1000px;
   margin: 0 auto;
-  padding: 0 24px;
 }
 
 .page-header {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
   margin-bottom: 24px;
 }
 
-.back-btn {
-  font-size: 16px;
-  padding: 8px 12px;
+.page-header h1 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.edit-container {
+  background: #f5f5f5;
+  padding: 24px;
+  border-radius: 8px;
+}
+
+.cover-preview {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid #e8e8e8;
+  border-radius: 6px;
+  background: #fafafa;
+}
+
+.form-tip {
+  font-size: 12px;
+  color: #999;
+  margin-top: 4px;
+}
+
+.user-info {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.page-title {
-  font-size: 24px;
-  font-weight: 600;
-  margin: 0;
-  color: #262626;
+:deep(.ant-card-head) {
+  background: #fafafa;
 }
 
-.edit-content {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 24px;
-}
-
-.edit-card {
-  height: fit-content;
-}
-
-.form-tip {
-  font-size: 12px;
-  color: #8c8c8c;
-  margin-top: 4px;
-}
-
-.form-actions {
-  display: flex;
-  gap: 12px;
-  justify-content: flex-end;
-}
-
-.preview-card {
-  height: fit-content;
-}
-
-.preview-container {
-  border: 1px solid #f0f0f0;
-  border-radius: 8px;
-  overflow: hidden;
-  height: 500px;
-}
-
-.preview-iframe {
-  width: 100%;
-  height: 100%;
-  border: none;
-}
-
-/* 响应式设计 */
-@media (max-width: 1024px) {
-  .edit-content {
-    grid-template-columns: 1fr;
-  }
-  
-  .preview-container {
-    height: 400px;
-  }
-}
-
-@media (max-width: 768px) {
-  .page-header {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-  
-  .form-actions {
-    flex-direction: column;
-  }
+:deep(.ant-descriptions-item-label) {
+  background: #fafafa;
+  font-weight: 500;
 }
 </style>

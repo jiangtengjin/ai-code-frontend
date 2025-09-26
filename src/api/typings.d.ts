@@ -4,14 +4,14 @@ declare namespace API {
   }
 
   type AppAdminUpdateRequest = {
-    id?: string | number
+    id?: number
     appName?: string
     cover?: string
     priority?: number
   }
 
   type AppDeployRequest = {
-    appId?: string | number
+    appId?: number
   }
 
   type AppQueryRequest = {
@@ -19,23 +19,23 @@ declare namespace API {
     pageSize?: number
     sortField?: string
     sortOrder?: string
-    id?: string | number
+    id?: number
     appName?: string
     cover?: string
     initPrompt?: string
     codeGenType?: string
     deployKey?: string
     priority?: number
-    userId?: string | number
+    userId?: number
   }
 
   type AppUpdateRequest = {
-    id?: string | number
+    id?: number
     appName?: string
   }
 
   type AppVO = {
-    id?: string | number
+    id?: number
     appName?: string
     cover?: string
     initPrompt?: string
@@ -43,7 +43,7 @@ declare namespace API {
     deployKey?: string
     deployedTime?: string
     priority?: number
-    userId?: string | number
+    userId?: number
     createTime?: string
     updateTime?: string
     user?: UserVO
@@ -104,32 +104,32 @@ declare namespace API {
   }
 
   type chatToGenCodeParams = {
-    appId: string | number
+    appId: number
     message: string
   }
 
   type DeleteRequest = {
-    id?: string | number
+    id?: number
   }
 
   type getAppVOByIdByAdminParams = {
-    id: string | number
+    id: number
   }
 
   type getAppVOByIdParams = {
-    id: string | number
+    id: number
   }
 
   type getUserByIdParams = {
-    id: string | number
+    id: number
   }
 
   type getUserVOByIdParams = {
-    id: string | number
+    id: number
   }
 
   type LoginUserVO = {
-    id?: string | number
+    id?: number
     userAccount?: string
     userName?: string
     userAvatar?: string
@@ -164,7 +164,7 @@ declare namespace API {
   }
 
   type User = {
-    id?: string | number
+    id?: number
     userAccount?: string
     userPassword?: string
     userName?: string
@@ -195,7 +195,7 @@ declare namespace API {
     pageSize?: number
     sortField?: string
     sortOrder?: string
-    id?: string | number
+    id?: number
     userName?: string
     userAccount?: string
     userProfile?: string
@@ -209,7 +209,7 @@ declare namespace API {
   }
 
   type UserUpdateRequest = {
-    id?: string | number
+    id?: number
     userName?: string
     userAvatar?: string
     userProfile?: string
@@ -217,7 +217,7 @@ declare namespace API {
   }
 
   type UserVO = {
-    id?: string | number
+    id?: number
     userAccount?: string
     userName?: string
     userAvatar?: string

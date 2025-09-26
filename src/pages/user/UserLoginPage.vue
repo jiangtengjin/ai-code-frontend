@@ -1,6 +1,6 @@
 <template>
   <div id="userLoginPage">
-    <h2 class="title">AI 应用生成 - 用户登录</h2>
+    <h2 class="title">鱼皮 AI 应用生成 - 用户登录</h2>
     <div class="desc">不写一行代码，生成完整应用</div>
     <a-form :model="formState" name="basic" autocomplete="off" @finish="handleSubmit">
       <a-form-item name="userAccount" :rules="[{ required: true, message: '请输入账号' }]">
@@ -27,19 +27,19 @@
 </template>
 
 <script setup lang="ts">
-import { reactive } from 'vue'
 import { useRouter } from 'vue-router'
+import { useLoginUserStore } from '@/stores/loginUser.ts'
+import { userLogin } from '@/api/userController.ts'
 import { message } from 'ant-design-vue'
-import { userLogin } from '@/api/userController'
-import { useLoginUserStore } from '@/stores/loginUser'
+import { reactive } from 'vue'
+
+const router = useRouter()
+const loginUserStore = useLoginUserStore()
 
 const formState = reactive<API.UserLoginRequest>({
   userAccount: '',
   userPassword: '',
 })
-
-const router = useRouter()
-const loginUserStore = useLoginUserStore()
 
 /**
  * 提交表单

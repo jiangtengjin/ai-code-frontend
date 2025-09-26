@@ -1,217 +1,464 @@
+<template>
+  <div id="appChatPage">
+    <!-- 顶部栏 -->
+    <div class="header-bar">
+      <div class="header-left">
+        <a-button type="text" @click="goBack">
+          <template #icon>
+            <ArrowLeftOutlined />
+          </template>
+        </a-button>
+        <h1 class="app-name">{{ appInfo?.appName || '个人博客生成器' }}</h1>
+      </div>
+      <div class="header-right">
+        <a-button type="default" @click="showAppDetail">
+          <template #icon>
+            <InfoCircleOutlined />
+          </template>
+          应用详情
+        </a-button>
+        <a-button type="primary" @click="deployApp" :loading="deploying">
+          <template #icon>
+            <CloudUploadOutlined />
+          </template>
+          部署按钮
+        </a-button>
+      </div>
+    </div>
+
+    <!-- 主要内容区域 -->
+    <div class="main-content">
+      <!-- 左侧对话区域 -->
+      <div class="chat-section">
+        <!-- 消息区域 -->
+        <div class="messages-container" ref="messagesContainer">
+          <div v-for="(message, index) in messages" :key="index" class="message-item">
+            <div v-if="message.type === 'user'" class="user-message">
+              <div class="message-content">{{ message.content }}</div>
+              <div class="message-avatar">
+                <a-avatar :src="loginUserStore.loginUser.userAvatar" />
+              </div>
+            </div>
+            <div v-else class="ai-message">
+              <div class="message-avatar">
+                <a-avatar style="background-color: #1890ff">AI</a-avatar>
+              </div>
+              <div class="message-content">
+                <div v-if="message.content" class="message-text">{{ message.content }}</div>
+                <div v-if="message.loading" class="loading-indicator">
+                  <a-spin size="small" />
+                  <span>AI 正在思考...</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 用户消息输入框 -->
+        <div class="input-container">
+          <div class="input-wrapper">
+            <a-tooltip v-if="!isOwner" title="无法在别人的作品下对话哦~" placement="top">
+              <a-textarea
+                v-model:value="userInput"
+                placeholder="描述你想要的修改..."
+                :rows="3"
+                :maxlength="1000"
+                @keydown.enter.prevent="sendMessage"
+                :disabled="isGenerating || !isOwner"
+              />
+            </a-tooltip>
+            <a-textarea
+              v-else
+              v-model:value="userInput"
+              placeholder="描述你想要的修改..."
+              :rows="3"
+              :maxlength="1000"
+              @keydown.enter.prevent="sendMessage"
+              :disabled="isGenerating"
+            />
+            <div class="input-actions">
+              <a-button
+                type="primary"
+                @click="sendMessage"
+                :loading="isGenerating"
+                :disabled="!isOwner"
+              >
+                <template #icon>
+                  <SendOutlined />
+                </template>
+              </a-button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 右侧网页展示区域 -->
+      <div class="preview-section">
+        <div class="preview-header">
+          <h3>生成后的网页展示</h3>
+          <div class="preview-actions">
+            <a-button v-if="previewUrl" type="link" @click="openInNewTab">
+              <template #icon>
+                <ExportOutlined />
+              </template>
+              新窗口打开
+            </a-button>
+          </div>
+        </div>
+        <div class="preview-content">
+          <div v-if="!previewUrl && !isGenerating" class="preview-placeholder">
+            <div class="placeholder-icon">🌐</div>
+            <p>网站文件生成完成后将在这里展示</p>
+          </div>
+          <div v-else-if="isGenerating" class="preview-loading">
+            <a-spin size="large" />
+            <p>正在生成网站...</p>
+          </div>
+          <iframe
+            v-else
+            :src="previewUrl"
+            class="preview-iframe"
+            frameborder="0"
+            @load="onIframeLoad"
+          ></iframe>
+        </div>
+      </div>
+    </div>
+
+    <!-- 应用详情弹窗 -->
+    <a-modal v-model:open="appDetailVisible" title="应用详情" :footer="null" width="500px">
+      <div class="app-detail-content">
+        <!-- 应用基础信息 -->
+        <div class="app-basic-info">
+          <div class="info-item">
+            <span class="info-label">创建者：</span>
+            <div class="creator-info">
+              <a-avatar :src="appInfo?.user?.userAvatar" size="small" />
+              <span class="creator-name">{{ appInfo?.user?.userName || '未知用户' }}</span>
+            </div>
+          </div>
+          <div class="info-item">
+            <span class="info-label">创建时间：</span>
+            <span>{{ formatTime(appInfo?.createTime) }}</span>
+          </div>
+        </div>
+
+        <!-- 操作栏（仅本人或管理员可见） -->
+        <div v-if="isOwner || isAdmin" class="app-actions">
+          <a-space>
+            <a-button type="primary" @click="editApp">
+              <template #icon>
+                <EditOutlined />
+              </template>
+              修改
+            </a-button>
+            <a-popconfirm
+              title="确定要删除这个应用吗？"
+              @confirm="deleteApp"
+              ok-text="确定"
+              cancel-text="取消"
+            >
+              <a-button danger>
+                <template #icon>
+                  <DeleteOutlined />
+                </template>
+                删除
+              </a-button>
+            </a-popconfirm>
+          </a-space>
+        </div>
+      </div>
+    </a-modal>
+
+    <!-- 部署成功弹窗 -->
+    <a-modal v-model:open="deployModalVisible" title="部署成功" :footer="null" width="600px">
+      <div class="deploy-success">
+        <div class="success-icon">
+          <CheckCircleOutlined style="color: #52c41a; font-size: 48px" />
+        </div>
+        <h3>网站部署成功！</h3>
+        <p>你的网站已经成功部署，可以通过以下链接访问：</p>
+        <div class="deploy-url">
+          <a-input :value="deployUrl" readonly>
+            <template #suffix>
+              <a-button type="text" @click="copyUrl">
+                <CopyOutlined />
+              </a-button>
+            </template>
+          </a-input>
+        </div>
+        <div class="deploy-actions">
+          <a-button type="primary" @click="openDeployedSite">访问网站</a-button>
+          <a-button @click="deployModalVisible = false">关闭</a-button>
+        </div>
+      </div>
+    </a-modal>
+  </div>
+</template>
+
 <script setup lang="ts">
-import { ref, onMounted, nextTick } from 'vue'
+import { ref, onMounted, nextTick, onUnmounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
-import { getAppVoById, deployApp } from '@/api/appController'
 import { useLoginUserStore } from '@/stores/loginUser'
+import {
+  getAppVoById,
+  deployApp as deployAppApi,
+  deleteApp as deleteAppApi,
+} from '@/api/appController'
+import { CodeGenTypeEnum } from '@/utils/codeGenTypes'
+import request from '@/request'
+import dayjs from 'dayjs'
+
+import {
+  ArrowLeftOutlined,
+  CloudUploadOutlined,
+  SendOutlined,
+  ExportOutlined,
+  CheckCircleOutlined,
+  CopyOutlined,
+  InfoCircleOutlined,
+  EditOutlined,
+  DeleteOutlined,
+} from '@ant-design/icons-vue'
 
 const route = useRoute()
 const router = useRouter()
 const loginUserStore = useLoginUserStore()
 
 // 应用信息
-const app = ref<API.AppVO>({})
-const loading = ref(false)
+const appInfo = ref<API.AppVO>()
+const appId = ref<string>()
 
 // 对话相关
-const messages = ref<Array<{
-  id: string
+interface Message {
   type: 'user' | 'ai'
   content: string
-  timestamp: number
-}>>([])
+  loading?: boolean
+}
 
-const currentMessage = ref('')
-const chatLoading = ref(false)
+const messages = ref<Message[]>([])
+const userInput = ref('')
+const isGenerating = ref(false)
 const messagesContainer = ref<HTMLElement>()
+const hasInitialConversation = ref(false) // 标记是否已经进行过初始对话
 
-// 网页展示相关
-const showWebsite = ref(false)
-const websiteUrl = ref('')
-const deployLoading = ref(false)
+// 预览相关
+const previewUrl = ref('')
+const previewReady = ref(false)
+
+// 部署相关
+const deploying = ref(false)
+const deployModalVisible = ref(false)
+const deployUrl = ref('')
+
+// 权限相关
+const isOwner = computed(() => {
+  return appInfo.value?.userId === loginUserStore.loginUser.id
+})
+
+const isAdmin = computed(() => {
+  return loginUserStore.loginUser.userRole === 'admin'
+})
+
+// 应用详情相关
+const appDetailVisible = ref(false)
+
+// 显示应用详情
+const showAppDetail = () => {
+  appDetailVisible.value = true
+}
 
 // 获取应用信息
-const loadApp = async () => {
-  const appId = route.params.id as string
-  if (!appId) {
+const fetchAppInfo = async () => {
+  const id = route.params.id as string
+  if (!id) {
     message.error('应用ID不存在')
     router.push('/')
     return
   }
 
-  loading.value = true
+  appId.value = id
+
   try {
-    const res = await getAppVoById({ id: appId as any })
+    const res = await getAppVoById({ id: id as unknown as number })
     if (res.data.code === 0 && res.data.data) {
-      app.value = res.data.data
-      
-      // 自动发送初始提示词
-      if (app.value.initPrompt && messages.value.length === 0) {
-        await sendMessage(app.value.initPrompt, true)
+      appInfo.value = res.data.data
+
+      // 检查是否有view=1参数，如果有则不自动发送初始提示词
+      const isViewMode = route.query.view === '1'
+
+      // 自动发送初始提示词（除非是查看模式或已经进行过初始对话）
+      if (appInfo.value.initPrompt && !isViewMode && !hasInitialConversation.value) {
+        hasInitialConversation.value = true
+        await sendInitialMessage(appInfo.value.initPrompt)
       }
     } else {
-      message.error('获取应用信息失败：' + res.data.message)
+      message.error('获取应用信息失败')
       router.push('/')
     }
   } catch (error) {
+    console.error('获取应用信息失败：', error)
     message.error('获取应用信息失败')
     router.push('/')
-  } finally {
-    loading.value = false
   }
 }
 
-// 获取文件图标
-const getFileIcon = (filename: string) => {
-  if (filename.includes('.jsx') || filename.includes('.js')) return '📄'
-  if (filename.includes('.css')) return '🎨'
-  if (filename.includes('.html')) return '🌐'
-  if (filename.includes('.json')) return '⚙️'
-  return '📁'
-}
-
-// 判断是否为结构化响应
-const isStructuredResponse = (content: string) => {
-  return content.includes('STEP') || content.includes('创建') || content.includes('生成') || 
-         content.includes('.jsx') || content.includes('.js') || content.includes('.css') || content.includes('.html')
-}
-
-// 解析结构化响应
-const parseStructuredResponse = (content: string) => {
-  const sections: any[] = []
-  const lines = content.split('\n')
-  
-  let currentSection: any = { type: 'text', content: '' }
-  
-  for (const line of lines) {
-    if (line.includes('STEP')) {
-      // 保存当前section
-      if (currentSection.content.trim()) {
-        sections.push(currentSection)
-      }
-      
-      // 创建新的step section
-      currentSection = {
-        type: 'step',
-        title: line.trim(),
-        content: ''
-      }
-    } else if (line.includes('.jsx') || line.includes('.js') || line.includes('.css') || line.includes('.html')) {
-      // 文件相关信息
-      const fileName = line.trim()
-      const icon = getFileIcon(fileName)
-      
-      sections.push({
-        type: 'file',
-        name: fileName.split(' ')[0],
-        path: fileName,
-        icon: icon
-      })
-    } else if (line.includes('创建') || line.includes('生成') || line.includes('完成')) {
-      // 描述性信息
-      if (currentSection.type === 'step') {
-        currentSection.content += line + '\n'
-      } else {
-        sections.push({
-          type: 'description',
-          content: line.trim()
-        })
-      }
-    } else if (line.trim()) {
-      // 普通文本
-      if (currentSection.type === 'step') {
-        currentSection.content += line + '\n'
-      } else {
-        currentSection.content += line + '\n'
-      }
-    }
-  }
-  
-  // 添加最后一个section
-  if (currentSection.content.trim()) {
-    sections.push(currentSection)
-  }
-  
-  return sections
-}
-
-// 发送消息
-const sendMessage = async (content: string, isInitial = false) => {
-  if (!content.trim() && !isInitial) return
-
-  const messageContent = isInitial ? content : currentMessage.value.trim()
-  if (!messageContent) return
-
+// 发送初始消息
+const sendInitialMessage = async (prompt: string) => {
   // 添加用户消息
-  const userMessage = {
-    id: Date.now().toString(),
-    type: 'user' as const,
-    content: messageContent,
-    timestamp: Date.now()
-  }
-  messages.value.push(userMessage)
+  messages.value.push({
+    type: 'user',
+    content: prompt,
+  })
 
-  if (!isInitial) {
-    currentMessage.value = ''
-  }
+  // 添加AI消息占位符
+  const aiMessageIndex = messages.value.length
+  messages.value.push({
+    type: 'ai',
+    content: '',
+    loading: true,
+  })
 
-  // 滚动到底部
   await nextTick()
   scrollToBottom()
 
-  // 添加AI消息占位符
-  const aiMessage = {
-    id: (Date.now() + 1).toString(),
-    type: 'ai' as const,
-    content: '',
-    timestamp: Date.now()
-  }
-  messages.value.push(aiMessage)
+  // 开始生成
+  isGenerating.value = true
+  await generateCode(prompt, aiMessageIndex)
+}
 
-  chatLoading.value = true
+// 发送消息
+const sendMessage = async () => {
+  if (!userInput.value.trim() || isGenerating.value) {
+    return
+  }
+
+  const message = userInput.value.trim()
+  userInput.value = ''
+
+  // 添加用户消息
+  messages.value.push({
+    type: 'user',
+    content: message,
+  })
+
+  // 添加AI消息占位符
+  const aiMessageIndex = messages.value.length
+  messages.value.push({
+    type: 'ai',
+    content: '',
+    loading: true,
+  })
+
+  await nextTick()
+  scrollToBottom()
+
+  // 开始生成
+  isGenerating.value = true
+  await generateCode(message, aiMessageIndex)
+}
+
+// 生成代码 - 使用 EventSource 处理流式响应
+const generateCode = async (userMessage: string, aiMessageIndex: number) => {
+  let eventSource: EventSource | null = null
+  let streamCompleted = false
 
   try {
-    // 使用 EventSource 接收流式响应
-    const eventSource = new EventSource(
-      `http://localhost:8123/api/app/chat/gen/code?appId=${app.value.id}&message=${encodeURIComponent(messageContent)}`,
-      { withCredentials: true }
-    )
+    // 获取 axios 配置的 baseURL
+    const baseURL = request.defaults.baseURL || 'http://localhost:8123/api'
 
-    eventSource.onmessage = (event) => {
-      const data = event.data
-      if (data === '[DONE]') {
-        eventSource.close()
-        chatLoading.value = false
-        
-        // 显示网站预览
-        showWebsite.value = true
-        websiteUrl.value = `http://localhost:8123/api/static/${app.value.codeGenType}_${app.value.id}/`
-        
-        return
-      }
+    // 构建URL参数
+    const params = new URLSearchParams({
+      appId: appId.value || '',
+      message: userMessage,
+    })
 
-      // 更新AI消息内容
-      const lastMessage = messages.value[messages.value.length - 1]
-      if (lastMessage.type === 'ai') {
-        lastMessage.content += data
-        
-        // 滚动到底部
-        nextTick(() => {
+    const url = `${baseURL}/app/chat/gen/code?${params}`
+
+    // 创建 EventSource 连接
+    eventSource = new EventSource(url, {
+      withCredentials: true,
+    })
+
+    let fullContent = ''
+
+    // 处理接收到的消息
+    eventSource.onmessage = function (event) {
+      if (streamCompleted) return
+
+      try {
+        // 解析JSON包装的数据
+        const parsed = JSON.parse(event.data)
+        const content = parsed.d
+
+        // 拼接内容
+        if (content !== undefined && content !== null) {
+          fullContent += content
+          messages.value[aiMessageIndex].content = fullContent
+          messages.value[aiMessageIndex].loading = false
           scrollToBottom()
-        })
+        }
+      } catch (error) {
+        console.error('解析消息失败:', error)
+        handleError(error, aiMessageIndex)
       }
     }
 
-    eventSource.onerror = (error) => {
-      console.error('EventSource error:', error)
-      eventSource.close()
-      chatLoading.value = false
-      message.error('对话出现错误，请重试')
-    }
+    // 处理done事件
+    eventSource.addEventListener('done', function () {
+      if (streamCompleted) return
 
+      streamCompleted = true
+      isGenerating.value = false
+      eventSource?.close()
+
+      // 延迟更新预览，确保后端已完成处理
+      setTimeout(async () => {
+        await fetchAppInfo()
+        updatePreview()
+      }, 1000)
+    })
+
+    // 处理错误
+    eventSource.onerror = function () {
+      if (streamCompleted || !isGenerating.value) return
+      // 检查是否是正常的连接关闭
+      if (eventSource?.readyState === EventSource.CONNECTING) {
+        streamCompleted = true
+        isGenerating.value = false
+        eventSource?.close()
+
+        setTimeout(async () => {
+          await fetchAppInfo()
+          updatePreview()
+        }, 1000)
+      } else {
+        handleError(new Error('SSE连接错误'), aiMessageIndex)
+      }
+    }
   } catch (error) {
-    chatLoading.value = false
-    message.error('发送消息失败，请重试')
+    console.error('创建 EventSource 失败：', error)
+    handleError(error, aiMessageIndex)
+  }
+}
+
+// 错误处理函数
+const handleError = (error: unknown, aiMessageIndex: number) => {
+  console.error('生成代码失败：', error)
+  messages.value[aiMessageIndex].content = '抱歉，生成过程中出现了错误，请重试。'
+  messages.value[aiMessageIndex].loading = false
+  message.error('生成失败，请重试')
+  isGenerating.value = false
+}
+
+// 更新预览
+const updatePreview = () => {
+  if (appId.value) {
+    const codeGenType = appInfo.value?.codeGenType || CodeGenTypeEnum.HTML
+    const newPreviewUrl = `http://localhost:8123/api/static/${codeGenType}_${appId.value}/`
+    previewUrl.value = newPreviewUrl
+    previewReady.value = true
   }
 }
 
@@ -222,210 +469,129 @@ const scrollToBottom = () => {
   }
 }
 
-// 部署应用
-const handleDeploy = async () => {
-  if (!app.value.id) return
+// 返回上一页
+const goBack = () => {
+  router.back()
+}
 
-  deployLoading.value = true
+// 部署应用
+const deployApp = async () => {
+  if (!appId.value) {
+    message.error('应用ID不存在')
+    return
+  }
+
+  deploying.value = true
   try {
-    const res = await deployApp({ appId: app.value.id })
+    const res = await deployAppApi({
+      appId: appId.value as unknown as number,
+    })
+
     if (res.data.code === 0 && res.data.data) {
-      message.success('部署成功！')
-      
-      // 显示部署链接
-      const deployUrl = res.data.data
-      message.info(`部署地址：${deployUrl}`, 10)
-      
-      // 可以选择打开新窗口
-      window.open(deployUrl, '_blank')
+      deployUrl.value = res.data.data
+      deployModalVisible.value = true
+      message.success('部署成功')
     } else {
       message.error('部署失败：' + res.data.message)
     }
   } catch (error) {
+    console.error('部署失败：', error)
     message.error('部署失败，请重试')
   } finally {
-    deployLoading.value = false
+    deploying.value = false
   }
 }
 
-// 处理回车发送
-const handleKeyPress = (event: KeyboardEvent) => {
-  if (event.key === 'Enter' && !event.shiftKey) {
-    event.preventDefault()
-    sendMessage(currentMessage.value)
+// 在新窗口打开预览
+const openInNewTab = () => {
+  if (previewUrl.value) {
+    window.open(previewUrl.value, '_blank')
   }
 }
 
+// 打开部署的网站
+const openDeployedSite = () => {
+  if (deployUrl.value) {
+    window.open(deployUrl.value, '_blank')
+  }
+}
+
+// 复制链接
+const copyUrl = async () => {
+  try {
+    await navigator.clipboard.writeText(deployUrl.value)
+    message.success('链接已复制到剪贴板')
+  } catch (error) {
+    console.error('复制失败：', error)
+    message.error('复制失败')
+  }
+}
+
+// iframe加载完成
+const onIframeLoad = () => {
+  previewReady.value = true
+}
+
+// 格式化时间
+const formatTime = (time: string | undefined) => {
+  if (!time) return ''
+  return dayjs(time).format('YYYY-MM-DD HH:mm:ss')
+}
+
+// 编辑应用
+const editApp = () => {
+  if (appInfo.value?.id) {
+    router.push(`/app/edit/${appInfo.value.id}`)
+  }
+}
+
+// 删除应用
+const deleteApp = async () => {
+  if (!appInfo.value?.id) return
+
+  try {
+    const res = await deleteAppApi({ id: appInfo.value.id })
+    if (res.data.code === 0) {
+      message.success('删除成功')
+      appDetailVisible.value = false
+      router.push('/')
+    } else {
+      message.error('删除失败：' + res.data.message)
+    }
+  } catch (error) {
+    console.error('删除失败：', error)
+    message.error('删除失败')
+  }
+}
+
+// 页面加载时获取应用信息
 onMounted(() => {
-  loadApp()
+  fetchAppInfo()
+})
+
+// 清理资源
+onUnmounted(() => {
+  // EventSource 会在组件卸载时自动清理
 })
 </script>
 
-<template>
-  <div class="app-chat-page">
-    <a-spin :spinning="loading" tip="加载中...">
-      <!-- 顶部栏 -->
-      <div class="chat-header">
-        <div class="header-left">
-          <a-button type="text" @click="router.back()" class="back-btn">
-            <template #icon>←</template>
-          </a-button>
-          <h1 class="app-title">{{ app.appName || '生成个人博客' }}</h1>
-        </div>
-        <div class="header-right">
-          <a-button 
-            type="primary" 
-            :loading="deployLoading"
-            @click="handleDeploy"
-            :disabled="!showWebsite"
-          >
-            部署按钮
-          </a-button>
-        </div>
-      </div>
-
-      <!-- 主要内容区域 -->
-      <div class="chat-content">
-        <!-- 左侧对话区域 -->
-        <div class="chat-section">
-          <div class="chat-title">应用名称</div>
-          
-          <!-- 消息区域 -->
-          <div class="messages-container" ref="messagesContainer">
-            <div 
-              v-for="msg in messages" 
-              :key="msg.id"
-              :class="['message', msg.type]"
-            >
-              <div class="message-content">
-                <div v-if="msg.type === 'user'" class="user-message">
-                  {{ msg.content }}
-                </div>
-                <div v-else class="ai-message">
-                  <div class="ai-label">AI 回复</div>
-                  <div class="ai-content">
-                    <div v-if="isStructuredResponse(msg.content)" class="structured-response">
-                      <div v-for="(section, index) in parseStructuredResponse(msg.content)" :key="index" class="response-section">
-                        <div v-if="section.type === 'step'" class="step-section">
-                          <div class="step-header">
-                            <span class="step-icon">🔧</span>
-                            <span class="step-title">{{ section.title }}</span>
-                          </div>
-                          <div class="step-content" v-if="section.content">{{ section.content }}</div>
-                        </div>
-                        <div v-else-if="section.type === 'file'" class="file-section">
-                          <div class="file-item">
-                            <span class="file-icon">{{ section.icon }}</span>
-                            <span class="file-name">{{ section.name }}</span>
-                            <span class="file-path">{{ section.path }}</span>
-                          </div>
-                        </div>
-                        <div v-else-if="section.type === 'description'" class="description-section">
-                          <p>{{ section.content }}</p>
-                        </div>
-                        <div v-else class="text-section">
-                          {{ section.content }}
-                        </div>
-                      </div>
-                    </div>
-                    <div v-else class="simple-response" v-html="msg.content.replace(/\n/g, '<br>')"></div>
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            <!-- 加载指示器 -->
-            <div v-if="chatLoading" class="message ai">
-              <div class="message-content">
-                <div class="ai-message">
-                  <div class="ai-label">AI 回复</div>
-                  <div class="ai-content">
-                    <a-spin size="small" /> 正在生成...
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- 输入框 -->
-          <div class="input-section">
-            <div class="input-container">
-              <a-textarea
-                v-model:value="currentMessage"
-                placeholder="请描述您想要的修改，可以一步一步地完善您的网站"
-                :rows="3"
-                :disabled="chatLoading"
-                @keypress="handleKeyPress"
-                class="message-input"
-              />
-              <div class="input-actions">
-                <a-button type="text" size="small">
-                  <template #icon>📎</template>
-                  上传
-                </a-button>
-                <a-button type="text" size="small">
-                  <template #icon>🎤</template>
-                  语音
-                </a-button>
-                <a-button type="text" size="small">
-                  ✨ 优化
-                </a-button>
-                <a-button 
-                  type="primary" 
-                  :loading="chatLoading"
-                  @click="sendMessage(currentMessage)"
-                  :disabled="!currentMessage.trim()"
-                  class="send-btn"
-                >
-                  <template #icon>↗</template>
-                </a-button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- 右侧网页展示区域 -->
-        <div class="preview-section">
-          <div class="preview-header">
-            <span class="preview-title">生成的网页展示</span>
-          </div>
-          
-          <div class="preview-content">
-            <div v-if="!showWebsite" class="preview-placeholder">
-              <div class="placeholder-content">
-                <div class="placeholder-icon">🌐</div>
-                <p>网站生成完成后将在此处展示</p>
-              </div>
-            </div>
-            
-            <iframe 
-              v-else
-              :src="websiteUrl"
-              class="preview-iframe"
-              frameborder="0"
-            ></iframe>
-          </div>
-        </div>
-      </div>
-    </a-spin>
-  </div>
-</template>
-
 <style scoped>
-.app-chat-page {
-  height: calc(100vh - 120px);
+#appChatPage {
+  height: 100vh;
   display: flex;
   flex-direction: column;
+  background: #f5f5f5;
 }
 
 /* 顶部栏 */
-.chat-header {
+.header-bar {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 16px 0;
-  border-bottom: 1px solid #f0f0f0;
-  margin-bottom: 16px;
+  padding: 16px 24px;
+  background: white;
+  border-bottom: 1px solid #e8e8e8;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .header-left {
@@ -434,24 +600,25 @@ onMounted(() => {
   gap: 12px;
 }
 
-.back-btn {
+.app-name {
+  margin: 0;
   font-size: 18px;
-  padding: 4px 8px;
+  font-weight: 600;
+  color: #1a1a1a;
 }
 
-.app-title {
-  margin: 0;
-  font-size: 20px;
-  font-weight: 600;
-  color: #262626;
+.header-right {
+  display: flex;
+  gap: 12px;
 }
 
 /* 主要内容区域 */
-.chat-content {
+.main-content {
   flex: 1;
   display: flex;
-  gap: 24px;
-  min-height: 0;
+  gap: 16px;
+  padding: 16px;
+  overflow: hidden;
 }
 
 /* 左侧对话区域 */
@@ -459,186 +626,92 @@ onMounted(() => {
   flex: 1;
   display: flex;
   flex-direction: column;
-  border: 1px solid #f0f0f0;
+  background: white;
   border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   overflow: hidden;
-}
-
-.chat-title {
-  padding: 16px;
-  background: #fafafa;
-  border-bottom: 1px solid #f0f0f0;
-  font-weight: 600;
-  color: #262626;
 }
 
 .messages-container {
   flex: 1;
-  overflow-y: auto;
   padding: 16px;
-  background: white;
+  overflow-y: auto;
+  scroll-behavior: smooth;
 }
 
-.message {
+.message-item {
   margin-bottom: 16px;
 }
 
-.message.user {
+.user-message {
   display: flex;
   justify-content: flex-end;
-}
-
-.message.ai {
-  display: flex;
-  justify-content: flex-start;
-}
-
-.message-content {
-  max-width: 80%;
-}
-
-.user-message {
-  background: #1890ff;
-  color: white;
-  padding: 12px 16px;
-  border-radius: 18px 18px 4px 18px;
-  word-wrap: break-word;
+  align-items: flex-start;
+  gap: 8px;
 }
 
 .ai-message {
-  background: #f5f5f5;
+  display: flex;
+  justify-content: flex-start;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.message-content {
+  max-width: 70%;
   padding: 12px 16px;
-  border-radius: 18px 18px 18px 4px;
-  border: 1px solid #e8e8e8;
-}
-
-.ai-label {
-  font-size: 12px;
-  color: #1890ff;
-  margin-bottom: 8px;
-  font-weight: 600;
-}
-
-.ai-content {
-  color: #262626;
-  line-height: 1.6;
+  border-radius: 12px;
+  line-height: 1.5;
   word-wrap: break-word;
 }
 
-/* 结构化响应样式 */
-.structured-response {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+.user-message .message-content {
+  background: #1890ff;
+  color: white;
 }
 
-.step-section {
-  background: #f8f9fa;
-  border: 1px solid #e9ecef;
-  border-radius: 6px;
-  padding: 12px;
+.ai-message .message-content {
+  background: #f5f5f5;
+  color: #1a1a1a;
 }
 
-.step-header {
+/* 简单的文本样式 */
+.message-content {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  line-height: 1.5;
+}
+
+.message-avatar {
+  flex-shrink: 0;
+}
+
+.loading-indicator {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-weight: 600;
-  color: #495057;
-  margin-bottom: 8px;
-}
-
-.step-icon {
-  font-size: 16px;
-}
-
-.step-content {
-  color: #6c757d;
-  font-size: 14px;
-  line-height: 1.5;
-  white-space: pre-line;
-}
-
-.file-section {
-  background: #fff3cd;
-  border: 1px solid #ffeaa7;
-  border-radius: 6px;
-  padding: 8px 12px;
-}
-
-.file-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.file-icon {
-  font-size: 16px;
-}
-
-.file-name {
-  font-weight: 600;
-  color: #856404;
-}
-
-.file-path {
-  color: #6c757d;
-  font-size: 12px;
-}
-
-.description-section {
-  background: #d1ecf1;
-  border: 1px solid #bee5eb;
-  border-radius: 6px;
-  padding: 12px;
-}
-
-.description-section p {
-  margin: 0;
-  color: #0c5460;
-}
-
-.text-section {
-  color: #495057;
-  line-height: 1.5;
-  white-space: pre-line;
+  color: #666;
 }
 
 /* 输入区域 */
-.input-section {
-  border-top: 1px solid #f0f0f0;
+.input-container {
   padding: 16px;
+  border-top: 1px solid #e8e8e8;
   background: white;
 }
 
-.input-container {
+.input-wrapper {
   position: relative;
 }
 
-.message-input {
-  border-radius: 8px;
-  border: 1px solid #d9d9d9;
-  padding: 12px 60px 12px 12px;
-  resize: none;
+.input-wrapper .ant-input {
+  padding-right: 50px;
 }
 
 .input-actions {
   position: absolute;
   bottom: 8px;
   right: 8px;
-  display: flex;
-  gap: 4px;
-  align-items: center;
-}
-
-.send-btn {
-  border-radius: 50%;
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
 }
 
 /* 右侧预览区域 */
@@ -646,44 +719,62 @@ onMounted(() => {
   flex: 1;
   display: flex;
   flex-direction: column;
-  border: 1px solid #f0f0f0;
+  background: white;
   border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   overflow: hidden;
 }
 
 .preview-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   padding: 16px;
-  background: #fafafa;
-  border-bottom: 1px solid #f0f0f0;
-  text-align: center;
+  border-bottom: 1px solid #e8e8e8;
 }
 
-.preview-title {
+.preview-header h3 {
+  margin: 0;
+  font-size: 16px;
   font-weight: 600;
-  color: #262626;
+}
+
+.preview-actions {
+  display: flex;
+  gap: 8px;
 }
 
 .preview-content {
   flex: 1;
   position: relative;
-  background: white;
+  overflow: hidden;
 }
 
 .preview-placeholder {
-  height: 100%;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-}
-
-.placeholder-content {
-  text-align: center;
-  color: #8c8c8c;
+  height: 100%;
+  color: #666;
 }
 
 .placeholder-icon {
   font-size: 48px;
   margin-bottom: 16px;
+}
+
+.preview-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #666;
+}
+
+.preview-loading p {
+  margin-top: 16px;
 }
 
 .preview-iframe {
@@ -692,30 +783,105 @@ onMounted(() => {
   border: none;
 }
 
+/* 应用详情弹窗 */
+.app-detail-content {
+  padding: 8px 0;
+}
+
+.app-basic-info {
+  margin-bottom: 24px;
+}
+
+.app-basic-info h4 {
+  margin: 0 0 16px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.info-item {
+  display: flex;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.info-label {
+  width: 80px;
+  color: #666;
+  font-size: 14px;
+}
+
+.creator-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.creator-name {
+  font-size: 14px;
+  color: #1a1a1a;
+}
+
+/* 部署成功弹窗 */
+.deploy-success {
+  text-align: center;
+  padding: 24px;
+}
+
+.success-icon {
+  margin-bottom: 16px;
+}
+
+.deploy-success h3 {
+  margin: 0 0 16px;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.deploy-success p {
+  margin: 0 0 24px;
+  color: #666;
+}
+
+.deploy-url {
+  margin-bottom: 24px;
+}
+
+.deploy-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
 /* 响应式设计 */
 @media (max-width: 1024px) {
-  .chat-content {
+  .main-content {
     flex-direction: column;
   }
-  
+
+  .chat-section,
   .preview-section {
-    height: 400px;
+    flex: none;
+    height: 50vh;
   }
 }
 
 @media (max-width: 768px) {
-  .chat-header {
-    flex-direction: column;
-    gap: 12px;
-    align-items: stretch;
+  .header-bar {
+    padding: 12px 16px;
   }
-  
-  .app-title {
-    font-size: 18px;
+
+  .app-name {
+    font-size: 16px;
   }
-  
+
+  .main-content {
+    padding: 8px;
+    gap: 8px;
+  }
+
   .message-content {
-    max-width: 90%;
+    max-width: 85%;
   }
 }
 </style>
