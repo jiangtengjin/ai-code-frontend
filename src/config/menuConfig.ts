@@ -1,5 +1,5 @@
 import { h } from 'vue'
-import { HomeOutlined, UserOutlined, TeamOutlined } from '@ant-design/icons-vue'
+import { HomeOutlined, UserOutlined, TeamOutlined, AppstoreOutlined } from '@ant-design/icons-vue'
 import ACCESS_ENUM from '@/auth/accessEnum'
 
 /**
@@ -38,6 +38,13 @@ export const menuConfigs: MenuConfig[] = [
     label: '用户管理',
     title: '用户管理',
     icon: () => h(TeamOutlined),
+    access: ACCESS_ENUM.ADMIN, // 需要管理员权限
+  },
+  {
+    key: '/admin/appManage',
+    label: '应用管理',
+    title: '应用管理',
+    icon: () => h(AppstoreOutlined),
     access: ACCESS_ENUM.ADMIN, // 需要管理员权限
   },
   // 可以继续添加更多菜单项

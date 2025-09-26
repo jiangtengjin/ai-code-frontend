@@ -1,39 +1,125 @@
-# ai-code-frontend
+# AI 代码生成前端项目
 
-This template should help get you started developing with Vue 3 in Vite.
+## 项目介绍
 
-## Recommended IDE Setup
+这是一个基于 Vue 3 + TypeScript + Ant Design Vue 的 AI 代码生成平台前端项目。用户可以通过与 AI 对话来创建网站应用，查看生成的网站效果，部署应用，并管理个人应用。
 
-[VSCode](https://code.visualstudio.com/) + [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur).
+## 功能特性
 
-## Type Support for `.vue` Imports in TS
+### 用户功能
+- ✅ **应用创建**: 通过输入提示词创建应用
+- ✅ **AI 对话**: 与 AI 实时对话生成和修改网站
+- ✅ **应用预览**: 实时查看生成的网站效果
+- ✅ **应用部署**: 一键部署应用到线上
+- ✅ **应用管理**: 查看、编辑、删除个人应用
+- ✅ **精选应用**: 浏览和使用精选应用模板
 
-TypeScript cannot handle type information for `.vue` imports by default, so we replace the `tsc` CLI with `vue-tsc` for type checking. In editors, we need [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) to make the TypeScript language service aware of `.vue` types.
+### 管理员功能
+- ✅ **应用管理**: 管理所有用户的应用
+- ✅ **精选设置**: 设置应用为精选
+- ✅ **用户管理**: 管理系统用户
 
-## Customize configuration
+## 页面结构
 
-See [Vite Configuration Reference](https://vite.dev/config/).
+```
+src/pages/
+├── HomePage.vue              # 主页 - 应用创建和展示
+├── app/
+│   ├── AppChatPage.vue      # 应用对话页 - AI 对话生成代码
+│   ├── AppDetailPage.vue    # 应用详情页 - 查看应用信息
+│   └── AppEditPage.vue      # 应用编辑页 - 修改应用信息
+├── admin/
+│   ├── AppManagePage.vue    # 应用管理页 - 管理员功能
+│   └── UserManagePage.vue   # 用户管理页 - 管理员功能
+└── user/
+    ├── UserLoginPage.vue    # 用户登录页
+    ├── UserRegisterPage.vue # 用户注册页
+    └── UserCenterPage.vue   # 用户中心页
+```
 
-## Project Setup
+## 技术栈
 
-```sh
+- **前端框架**: Vue 3 + TypeScript
+- **UI 组件库**: Ant Design Vue
+- **路由管理**: Vue Router
+- **状态管理**: Pinia
+- **HTTP 客户端**: Axios
+- **构建工具**: Vite
+
+## 核心功能实现
+
+### 1. 主页 (HomePage.vue)
+- 渐变背景的英雄区域
+- 提示词输入框和快捷标签
+- 我的应用分页列表
+- 精选应用分页列表
+- 响应式设计
+
+### 2. 应用对话页 (AppChatPage.vue)
+- 左右分栏布局
+- 左侧对话区域，支持流式 AI 回复
+- 右侧网页预览区域
+- 实时消息展示和滚动
+- 部署功能
+
+### 3. 应用管理页 (AppManagePage.vue)
+- 管理员专用页面
+- 应用列表展示和搜索
+- 编辑、删除、精选操作
+- 分页和排序功能
+
+### 4. 权限控制
+- 基于角色的权限管理
+- 路由守卫自动权限检查
+- 菜单项权限过滤
+
+## API 集成
+
+项目已集成完整的后端 API：
+- 用户认证和管理
+- 应用 CRUD 操作
+- AI 对话接口 (SSE)
+- 文件部署接口
+
+## 安装和运行
+
+```bash
+# 安装依赖
 npm install
-```
 
-### Compile and Hot-Reload for Development
-
-```sh
+# 启动开发服务器
 npm run dev
-```
 
-### Type-Check, Compile and Minify for Production
-
-```sh
+# 构建生产版本
 npm run build
 ```
 
-### Lint with [ESLint](https://eslint.org/)
+## 环境要求
 
-```sh
-npm run lint
-```
+- Node.js 20.19+ 或 22.12+
+- 后端服务运行在 http://localhost:8123
+
+## 项目特色
+
+1. **现代化 UI 设计**: 采用渐变色彩和卡片式布局
+2. **流式对话体验**: 支持 SSE 实时显示 AI 回复
+3. **响应式布局**: 适配桌面和移动设备
+4. **权限管理**: 完整的用户权限控制系统
+5. **组件化开发**: 高度模块化的组件结构
+
+## 业务流程
+
+1. 用户在主页输入提示词创建应用
+2. 自动跳转到对话页面开始 AI 对话
+3. AI 生成代码后在右侧实时预览
+4. 用户可继续对话优化应用
+5. 满意后一键部署到线上
+6. 在个人中心管理所有应用
+
+## 开发说明
+
+- 所有页面都遵循项目既有的代码风格
+- 使用 TypeScript 确保类型安全
+- 集成 Ant Design Vue 组件库
+- 支持国际化 (中文)
+- 完整的错误处理和用户反馈
