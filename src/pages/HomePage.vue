@@ -187,7 +187,7 @@ onMounted(() => {
 #homePage {
   width: 100%;
   min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #f5576c 75%, #4facfe 100%);
+  background: linear-gradient(180deg, #f8f9ff 0%, #e8ecff 30%, #dde4ff 70%, #f0f2ff 100%);
   position: relative;
   overflow-x: hidden;
 }
@@ -200,23 +200,10 @@ onMounted(() => {
   right: 0;
   bottom: 0;
   background: 
-    radial-gradient(circle at 20% 80%, rgba(120, 119, 198, 0.4) 0%, transparent 50%),
-    radial-gradient(circle at 80% 20%, rgba(255, 119, 198, 0.4) 0%, transparent 50%),
-    radial-gradient(circle at 40% 40%, rgba(120, 219, 255, 0.3) 0%, transparent 50%),
-    radial-gradient(circle at 60% 70%, rgba(245, 87, 108, 0.3) 0%, transparent 50%);
+    radial-gradient(circle at 30% 20%, rgba(139, 92, 246, 0.08) 0%, transparent 50%),
+    radial-gradient(circle at 70% 80%, rgba(99, 102, 241, 0.06) 0%, transparent 50%),
+    radial-gradient(circle at 20% 60%, rgba(168, 85, 247, 0.05) 0%, transparent 40%);
   pointer-events: none;
-  animation: gradientShift 15s ease-in-out infinite;
-}
-
-@keyframes gradientShift {
-  0%, 100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.8;
-    transform: scale(1.05);
-  }
 }
 
 #homePage > * {
@@ -233,40 +220,27 @@ onMounted(() => {
 /* 英雄区域 */
 .hero-section {
   text-align: center;
-  padding: 100px 0 80px;
-  color: white;
+  padding: 80px 0 60px;
+  color: #4c1d95;
 }
 
 .hero-title {
-  font-size: 64px;
-  font-weight: 800;
-  margin: 0 0 24px;
-  line-height: 1.1;
-  color: white;
-  text-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-  background: linear-gradient(135deg, #ffffff 0%, #e0e7ff 50%, #c7d2fe 100%);
+  font-size: 56px;
+  font-weight: 700;
+  margin: 0 0 20px;
+  line-height: 1.2;
+  background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 50%, #a855f7 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-  animation: titleGlow 3s ease-in-out infinite alternate;
-}
-
-@keyframes titleGlow {
-  0% {
-    filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.3));
-  }
-  100% {
-    filter: drop-shadow(0 0 20px rgba(255, 255, 255, 0.6));
-  }
 }
 
 .hero-description {
-  font-size: 22px;
+  font-size: 18px;
   margin: 0;
-  opacity: 0.95;
+  opacity: 0.8;
   font-weight: 400;
-  color: rgba(255, 255, 255, 0.9);
-  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  color: #6b7280;
 }
 
 /* 输入区域 */
@@ -279,25 +253,20 @@ onMounted(() => {
 }
 
 .prompt-input {
-  border-radius: 20px;
-  border: none;
+  border-radius: 16px;
+  border: 1px solid rgba(139, 92, 246, 0.2);
   font-size: 16px;
-  padding: 24px 80px 24px 24px;
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(20px);
-  box-shadow: 
-    0 8px 32px rgba(0, 0, 0, 0.12),
-    0 0 0 1px rgba(255, 255, 255, 0.2);
+  padding: 20px 70px 20px 20px;
+  transition: all 0.3s ease;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 4px 20px rgba(139, 92, 246, 0.1);
 }
 
 .prompt-input:focus {
-  background: rgba(255, 255, 255, 0.98);
-  box-shadow: 
-    0 12px 40px rgba(0, 0, 0, 0.15),
-    0 0 0 2px rgba(255, 255, 255, 0.4),
-    0 0 20px rgba(102, 126, 234, 0.3);
-  transform: translateY(-3px) scale(1.02);
+  background: rgba(255, 255, 255, 1);
+  border-color: rgba(139, 92, 246, 0.4);
+  box-shadow: 0 8px 30px rgba(139, 92, 246, 0.15);
+  transform: translateY(-2px);
 }
 
 .input-actions {
@@ -321,60 +290,48 @@ onMounted(() => {
 }
 
 .quick-actions .ant-btn {
-  border-radius: 30px;
-  padding: 12px 24px;
+  border-radius: 20px;
+  padding: 10px 20px;
   height: auto;
-  background: rgba(255, 255, 255, 0.9);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  color: #4a5568;
-  font-weight: 600;
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(139, 92, 246, 0.2);
+  color: #6b7280;
+  font-weight: 500;
   font-size: 14px;
-  backdrop-filter: blur(10px);
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 10px rgba(139, 92, 246, 0.08);
 }
 
 .quick-actions .ant-btn:hover {
   background: rgba(255, 255, 255, 1);
-  border-color: rgba(255, 255, 255, 0.6);
-  transform: translateY(-3px) scale(1.05);
-  box-shadow: 
-    0 8px 25px rgba(0, 0, 0, 0.15),
-    0 0 20px rgba(255, 255, 255, 0.4);
-  color: #2d3748;
+  border-color: rgba(139, 92, 246, 0.3);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 15px rgba(139, 92, 246, 0.12);
+  color: #4c1d95;
 }
 
 /* 区域标题 */
 .section {
-  margin-bottom: 100px;
-  background: rgba(255, 255, 255, 0.95);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 24px;
-  padding: 50px;
-  backdrop-filter: blur(20px);
-  box-shadow: 
-    0 8px 32px rgba(0, 0, 0, 0.12),
-    0 0 0 1px rgba(255, 255, 255, 0.2);
+  margin-bottom: 80px;
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(139, 92, 246, 0.1);
+  border-radius: 20px;
+  padding: 40px;
+  box-shadow: 0 4px 20px rgba(139, 92, 246, 0.08);
   transition: all 0.3s ease;
 }
 
 .section:hover {
-  transform: translateY(-5px);
-  box-shadow: 
-    0 12px 40px rgba(0, 0, 0, 0.15),
-    0 0 0 1px rgba(255, 255, 255, 0.3);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(139, 92, 246, 0.12);
 }
 
 .section-title {
-  font-size: 36px;
-  font-weight: 700;
-  margin-bottom: 40px;
-  color: #2d3748;
+  font-size: 32px;
+  font-weight: 600;
+  margin-bottom: 32px;
+  color: #374151;
   text-align: center;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
 }
 
 
