@@ -32,6 +32,11 @@
       <div class="chat-section">
         <!-- 消息区域 -->
         <div class="messages-container" ref="messagesContainer">
+          <div v-if="hasMore" class="load-more">
+            <a-button type="link" @click="loadMoreHistory" :loading="loadingHistory"
+              >加载更多</a-button
+            >
+          </div>
           <div v-for="(message, index) in messages" :key="index" class="message-item">
             <div v-if="message.type === 'user'" class="user-message">
               <div class="message-content">{{ message.content }}</div>
@@ -44,7 +49,11 @@
                 <a-avatar :src="aiAvatarSvg" class="ai-avatar" size="small">AI</a-avatar>
               </div>
               <div class="message-content">
-                <div v-if="message.content" class="message-text markdown-content" v-html="renderMarkdown(message.content)"></div>
+                <div
+                  v-if="message.content"
+                  class="message-text markdown-content"
+                  v-html="renderMarkdown(message.content)"
+                ></div>
                 <div v-if="message.loading" class="loading-indicator">
                   <a-spin size="small" />
                   <span>AI 正在思考...</span>
@@ -94,11 +103,11 @@
 
       <!-- 右侧网页展示区域 -->
       <AppPreview
-        :url="previewUrl"
+        :url="`http://localhost:8123/api/static/${appInfo?.codeGenType || 'HTML'}_${appId}/`"
+        :appId="appId"
+        :codeGenType="appInfo?.codeGenType"
         :loading="isGenerating"
         title="生成后的网页展示"
-        placeholder-text="网站文件生成完成后将在这里展示"
-        loading-text="正在生成网站..."
         class="preview-section"
       />
     </div>
@@ -158,6 +167,7 @@ import aiAvatarSvg from '@/assets/aiAvatar.svg'
 import { ENV_CONFIG } from '@/config/env'
 import AppPreview from '@/components/AppPreview.vue'
 import AppDetailModal from '@/components/AppDetailModal.vue'
+import { listAppChatHistory } from '@/api/chatHistoryController'
 
 import {
   ArrowLeftOutlined,
@@ -180,13 +190,15 @@ const md: MarkdownIt = new MarkdownIt({
   highlight: function (str: string, lang: string): string {
     if (lang && hljs.getLanguage(lang)) {
       try {
-        return '<pre class="hljs"><code>' +
-               hljs.highlight(str, { language: lang, ignoreIllegals: true }).value +
-               '</code></pre>'
+        return (
+          '<pre class="hljs"><code>' +
+          hljs.highlight(str, { language: lang, ignoreIllegals: true }).value +
+          '</code></pre>'
+        )
       } catch (__) {}
     }
     return '<pre class="hljs"><code>' + md.utils.escapeHtml(str) + '</code></pre>'
-  }
+  },
 })
 
 // 渲染 Markdown 内容
@@ -204,6 +216,7 @@ interface Message {
   type: 'user' | 'ai'
   content: string
   loading?: boolean
+  createTime?: string
 }
 
 const messages = ref<Message[]>([])
@@ -211,6 +224,10 @@ const userInput = ref('')
 const isGenerating = ref(false)
 const messagesContainer = ref<HTMLElement>()
 const hasInitialConversation = ref(false) // 标记是否已经进行过初始对话
+// 历史游标与加载状态
+const lastCursor = ref<string | undefined>(undefined)
+const hasMore = ref(false)
+const loadingHistory = ref(false)
 
 // 预览相关
 const previewUrl = ref('')
@@ -250,18 +267,9 @@ const fetchAppInfo = async () => {
   appId.value = id
 
   try {
-    const res = await getAppVoById({ id: id as unknown as number })
+    const res = await getAppVoById({ id: id as any })
     if (res.data.code === 0 && res.data.data) {
       appInfo.value = res.data.data
-
-      // 检查是否有view=1参数，如果有则不自动发送初始提示词
-      const isViewMode = route.query.view === '1'
-
-      // 自动发送初始提示词（除非是查看模式或已经进行过初始对话）
-      if (appInfo.value.initPrompt && !isViewMode && !hasInitialConversation.value) {
-        hasInitialConversation.value = true
-        await sendInitialMessage(appInfo.value.initPrompt)
-      }
     } else {
       message.error('获取应用信息失败')
       router.push('/')
@@ -270,6 +278,77 @@ const fetchAppInfo = async () => {
     console.error('获取应用信息失败：', error)
     message.error('获取应用信息失败')
     router.push('/')
+  }
+}
+
+/**
+ * 历史加载（首页 10 条，按时间升序展示）
+ */
+const mapHistoryToMessages = (records: any[]): Message[] => {
+  return (records || []).map((r: any) => ({
+    type: (r.messageType === 'user' ? 'user' : 'ai') as 'user' | 'ai',
+    content: r.message || '',
+    createTime: r.createTime,
+  }))
+}
+
+const loadHistoryFirstPage = async () => {
+  if (!appId.value) return
+  loadingHistory.value = true
+  try {
+    const res = await listAppChatHistory({
+      appId: appId.value as any,
+    })
+    if (res.data.code === 0 && res.data.data) {
+      const records = res.data.data.records ?? []
+      const asc = [...records].sort(
+        (a: any, b: any) =>
+          new Date(a.createTime || '').getTime() - new Date(b.createTime || '').getTime()
+      )
+      messages.value = mapHistoryToMessages(asc)
+      lastCursor.value = asc.length > 0 ? asc[0].createTime : undefined
+      hasMore.value = records.length >= 10
+    } else {
+      message.error('加载对话历史失败：' + res.data.message)
+    }
+  } catch (e) {
+    console.error('加载对话历史失败：', e)
+    message.error('加载对话历史失败')
+  } finally {
+    loadingHistory.value = false
+  }
+}
+
+const loadMoreHistory = async () => {
+  if (!appId.value || loadingHistory.value) return
+  loadingHistory.value = true
+  try {
+    const res = await listAppChatHistory({
+      appId: appId.value as any,
+      lastCreateTime: lastCursor.value,
+    } as any)
+    if (res.data.code === 0 && res.data.data) {
+      const records = res.data.data.records ?? []
+      if (records.length === 0) {
+        hasMore.value = false
+      } else {
+        const asc = [...records].sort(
+          (a: any, b: any) =>
+            new Date(a.createTime || '').getTime() - new Date(b.createTime || '').getTime()
+        )
+        const newMsgs = mapHistoryToMessages(asc)
+        messages.value = [...newMsgs, ...messages.value]
+        lastCursor.value = asc[0]?.createTime
+        hasMore.value = records.length >= 10
+      }
+    } else {
+      message.error('加载更多失败：' + res.data.message)
+    }
+  } catch (e) {
+    console.error('加载更多失败：', e)
+    message.error('加载更多失败')
+  } finally {
+    loadingHistory.value = false
   }
 }
 
@@ -453,7 +532,7 @@ const deployApp = async () => {
   deploying.value = true
   try {
     const res = await deployAppApi({
-      appId: appId.value as unknown as number,
+      appId: appId.value as any,
     })
 
     if (res.data.code === 0 && res.data.data) {
@@ -470,8 +549,6 @@ const deployApp = async () => {
     deploying.value = false
   }
 }
-
-
 
 // 打开部署的网站
 const openDeployedSite = () => {
@@ -524,8 +601,20 @@ const deleteApp = async () => {
 }
 
 // 页面加载时获取应用信息
-onMounted(() => {
-  fetchAppInfo()
+onMounted(async () => {
+  await fetchAppInfo()
+  await loadHistoryFirstPage()
+  if (messages.value.length >= 2) {
+    updatePreview()
+  } else if (
+    isOwner.value &&
+    appInfo.value?.initPrompt &&
+    !hasInitialConversation.value &&
+    messages.value.length === 0
+  ) {
+    hasInitialConversation.value = true
+    await sendInitialMessage(appInfo.value.initPrompt)
+  }
 })
 
 // 清理资源
@@ -596,6 +685,11 @@ onUnmounted(() => {
   padding: 12px;
   overflow-y: auto;
   scroll-behavior: smooth;
+}
+
+.load-more {
+  text-align: center;
+  margin-bottom: 8px;
 }
 
 .message-item {

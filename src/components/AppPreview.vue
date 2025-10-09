@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import { ENV_CONFIG } from '@/config/env'
 import { ExportOutlined } from '@ant-design/icons-vue'
 
 interface Props {
@@ -9,20 +8,24 @@ interface Props {
   title?: string
   loading?: boolean
   showHeader?: boolean
+  url?: string
 }
 
 const props = withDefaults(defineProps<Props>(), {
   title: '生成后的网页展示',
   loading: false,
-  showHeader: true
+  showHeader: true,
 })
 
 const previewReady = ref(false)
 
 // 计算预览URL
 const previewUrl = computed(() => {
+  // 优先使用外部传入的完整 URL
+  if (props.url) return props.url
   if (!props.appId || !props.codeGenType) return ''
-  return `${ENV_CONFIG.PREVIEW_BASE_URL}/${props.codeGenType}_${props.appId}/`
+  // 默认使用本地预览域名
+  return `http://localhost:8123/api/static/${props.codeGenType}_${props.appId}/`
 })
 
 // 监听URL变化，重置预览状态
@@ -56,18 +59,18 @@ const onIframeLoad = () => {
         </a-button>
       </div>
     </div>
-    
+
     <div class="preview-content">
       <div v-if="!previewUrl && !loading" class="preview-placeholder">
         <div class="placeholder-icon">🌐</div>
         <p>网站文件生成完成后将在这里展示</p>
       </div>
-      
+
       <div v-else-if="loading" class="preview-loading">
         <a-spin size="large" />
         <p>正在生成网站...</p>
       </div>
-      
+
       <iframe
         v-else
         :src="previewUrl"
