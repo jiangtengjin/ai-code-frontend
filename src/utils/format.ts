@@ -1,4 +1,4 @@
-import { ENV_CONFIG } from '@/config/env'
+import { ENV_CONFIG, generatePreviewUrl, generateDeployUrl } from '@/config/env'
 
 /**
  * 格式化时间
@@ -52,7 +52,7 @@ export const formatNumber = (num: number) => {
  * @param codeGenType 代码生成类型
  */
 export const generateAppPreviewLink = (appId: string | number, codeGenType: string = 'HTML') => {
-  return `${ENV_CONFIG.PREVIEW_BASE_URL}/${codeGenType}_${appId}/`
+  return generatePreviewUrl(codeGenType, appId)
 }
 
 /**
@@ -60,7 +60,7 @@ export const generateAppPreviewLink = (appId: string | number, codeGenType: stri
  * @param deployKey 部署密钥
  */
 export const generateAppDeployLink = (deployKey: string) => {
-  return `${ENV_CONFIG.DEPLOY_BASE_URL}/${deployKey}`
+  return generateDeployUrl(deployKey)
 }
 
 /**
@@ -68,7 +68,8 @@ export const generateAppDeployLink = (deployKey: string) => {
  * @param appId 应用ID
  */
 export const generateAppShareLink = (appId: string | number) => {
-  return `${ENV_CONFIG.FRONTEND_BASE_URL}/app/${appId}`
+  const origin = typeof window !== 'undefined' ? window.location.origin : ''
+  return `${origin}/app/${appId}`
 }
 
 /**
@@ -111,7 +112,7 @@ export const generateRandomString = (length: number = 8) => {
  * @param wait
  */
 export const debounce = <T extends (...args: any[]) => any>(func: T, wait: number) => {
-  let timeout: NodeJS.Timeout
+  let timeout: ReturnType<typeof setTimeout>
   return (...args: Parameters<T>) => {
     clearTimeout(timeout)
     timeout = setTimeout(() => func.apply(null, args), wait)

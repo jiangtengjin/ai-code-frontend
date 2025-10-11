@@ -135,6 +135,7 @@ import { formatCodeGenType } from '@/utils/codeGenTypes'
 import { ArrowLeftOutlined } from '@ant-design/icons-vue'
 import dayjs from 'dayjs'
 import type { FormInstance } from 'ant-design-vue'
+import { generatePreviewUrl } from '@/config/env'
 
 const route = useRoute()
 const router = useRouter()
@@ -276,7 +277,7 @@ const goToChat = () => {
 // 打开预览
 const openPreview = () => {
   if (appInfo.value?.codeGenType && appInfo.value?.id) {
-    const url = `http://localhost:8123/api/static/${appInfo.value.codeGenType}_${appInfo.value.id}/`
+    const url = generatePreviewUrl(appInfo.value.codeGenType, appInfo.value.id)
     window.open(url, '_blank')
   }
 }

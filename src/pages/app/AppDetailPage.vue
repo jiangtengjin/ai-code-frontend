@@ -4,7 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 import { getAppVoById, deleteApp } from '@/api/appController'
 import { useLoginUserStore } from '@/stores/loginUser'
-import { ENV_CONFIG } from '@/config/env'
+import { generatePreviewUrl } from '@/config/env'
 import AppPreview from '@/components/AppPreview.vue'
 
 const route = useRoute()
@@ -71,7 +71,7 @@ const continueChat = () => {
 // 预览URL
 const previewUrl = computed(() => {
   if (app.value.codeGenType && app.value.id) {
-    return `${ENV_CONFIG.PREVIEW_BASE_URL}/${app.value.codeGenType}_${app.value.id}/`
+    return generatePreviewUrl(app.value.codeGenType, app.value.id)
   }
   return ''
 })
@@ -188,7 +188,8 @@ onMounted(() => {
         <div class="app-preview-card" v-if="app.codeGenType">
           <h2>应用预览</h2>
           <AppPreview
-            :url="previewUrl"
+            :appId="app.id"
+            :codeGenType="app.codeGenType"
             :loading="false"
             placeholder-text="应用预览加载中..."
             class="preview-wrapper"

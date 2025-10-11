@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { ExportOutlined } from '@ant-design/icons-vue'
+import { generatePreviewUrl } from '@/config/env'
 
 interface Props {
   appId?: string | number
@@ -24,8 +25,8 @@ const previewUrl = computed(() => {
   // 优先使用外部传入的完整 URL
   if (props.url) return props.url
   if (!props.appId || !props.codeGenType) return ''
-  // 默认使用本地预览域名
-  return `http://localhost:8123/api/static/${props.codeGenType}_${props.appId}/`
+  // 使用环境方法统一生成预览URL
+  return generatePreviewUrl(props.codeGenType, props.appId)
 })
 
 // 监听URL变化，重置预览状态

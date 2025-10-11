@@ -21,7 +21,7 @@
           <template #icon>
             <CloudUploadOutlined />
           </template>
-          部署按钮
+          部署
         </a-button>
       </div>
     </div>
@@ -103,7 +103,6 @@
 
       <!-- 右侧网页展示区域 -->
       <AppPreview
-        :url="`http://localhost:8123/api/static/${appInfo?.codeGenType || 'HTML'}_${appId}/`"
         :appId="appId"
         :codeGenType="appInfo?.codeGenType"
         :loading="isGenerating"
@@ -164,7 +163,7 @@ import MarkdownIt from 'markdown-it'
 import hljs from 'highlight.js'
 import 'highlight.js/styles/github.css'
 import aiAvatarSvg from '@/assets/aiAvatar.svg'
-import { ENV_CONFIG } from '@/config/env'
+import { generatePreviewUrl } from '@/config/env'
 import AppPreview from '@/components/AppPreview.vue'
 import AppDetailModal from '@/components/AppDetailModal.vue'
 import { listAppChatHistory } from '@/api/chatHistoryController'
@@ -504,7 +503,7 @@ const handleError = (error: unknown, aiMessageIndex: number) => {
 const updatePreview = () => {
   if (appId.value) {
     const codeGenType = appInfo.value?.codeGenType || CodeGenTypeEnum.HTML
-    const newPreviewUrl = `${ENV_CONFIG.PREVIEW_BASE_URL}/${codeGenType}_${appId.value}/`
+    const newPreviewUrl = generatePreviewUrl(codeGenType, appId.value)
     previewUrl.value = newPreviewUrl
     previewReady.value = true
   }
