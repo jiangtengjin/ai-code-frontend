@@ -4,11 +4,9 @@ import { useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 import { useLoginUserStore } from '@/stores/loginUser'
 import { deleteApp as deleteAppApi } from '@/api/appController'
+import { formatCodeGenType } from '@/utils/codeGenTypes'
 import dayjs from 'dayjs'
-import {
-  EditOutlined,
-  DeleteOutlined,
-} from '@ant-design/icons-vue'
+import { EditOutlined, DeleteOutlined } from '@ant-design/icons-vue'
 
 interface Props {
   visible: boolean
@@ -75,13 +73,7 @@ const deleteApp = async () => {
 </script>
 
 <template>
-  <a-modal 
-    :open="visible" 
-    title="应用详情" 
-    :footer="null" 
-    width="500px"
-    @cancel="handleClose"
-  >
+  <a-modal :open="visible" title="应用详情" :footer="null" width="500px" @cancel="handleClose">
     <div class="app-detail-content" v-if="app">
       <!-- 应用基础信息 -->
       <div class="app-basic-info">
@@ -100,9 +92,12 @@ const deleteApp = async () => {
           <span class="info-label">更新时间：</span>
           <span>{{ formatTime(app.updateTime) }}</span>
         </div>
-        <div class="info-item" v-if="app.codeGenType">
-          <span class="info-label">应用类型：</span>
-          <span>{{ app.codeGenType }}</span>
+        <div class="info-item">
+          <span class="info-label">生成类型：</span>
+          <a-tag v-if="app?.codeGenType" color="blue">
+            {{ formatCodeGenType(app.codeGenType) }}
+          </a-tag>
+          <span v-else>未知类型</span>
         </div>
       </div>
 

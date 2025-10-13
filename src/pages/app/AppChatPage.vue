@@ -3,12 +3,10 @@
     <!-- 顶部栏 -->
     <div class="header-bar">
       <div class="header-left">
-        <a-button type="text" @click="goBack">
-          <template #icon>
-            <ArrowLeftOutlined />
-          </template>
-        </a-button>
-        <h1 class="app-name">{{ appInfo?.appName || '个人博客生成器' }}</h1>
+        <h1 class="app-name">{{ appInfo?.appName || '网站生成器' }}</h1>
+        <a-tag v-if="appInfo?.codeGenType" color="blue" class="code-gen-type-tag">
+          {{ formatCodeGenType(appInfo.codeGenType) }}
+        </a-tag>
       </div>
       <div class="header-right">
         <a-button type="default" @click="showAppDetail">
@@ -163,7 +161,7 @@ import {
   deleteApp as deleteAppApi,
   downloadAppCode,
 } from '@/api/appController'
-import { CodeGenTypeEnum } from '@/utils/codeGenTypes'
+import { CodeGenTypeEnum, formatCodeGenType } from '@/utils/codeGenTypes'
 import request from '@/request'
 import dayjs from 'dayjs'
 import MarkdownIt from 'markdown-it'
@@ -687,6 +685,10 @@ onUnmounted(() => {
   background: white;
   border-bottom: 1px solid #e8e8e8;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.code-gen-type-tag {
+  font-size: 12px;
 }
 
 .header-left {
