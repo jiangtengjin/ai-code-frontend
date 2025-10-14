@@ -69,6 +69,18 @@
 
         <!-- 用户消息输入框 -->
         <div class="input-container">
+          <!-- 选中元素信息 Alert -->
+          <div v-if="selectedElement" class="selected-element-alert">
+            <a-alert
+              type="info"
+              banner
+              :message="`已选中元素：${selectedElement.tagName} | ${selectedElement.selector}`"
+              :description="selectedElement.text"
+              closable
+              @close="() => { selectedElement.value = null; visualEditorInstance?.clearSelected(); }"
+            />
+          </div>
+
           <div class="input-wrapper">
             <a-tooltip v-if="!isOwner" title="无法在别人的作品下对话哦~" placement="top">
               <a-textarea
@@ -90,6 +102,32 @@
               :disabled="isGenerating"
             />
             <div class="input-actions">
+              <!-- 编辑模式按钮（位于发送左侧） -->
+              <a-button
+                style="margin-right: 8px"
+                :type="editModeEnabled ? 'primary' : 'default'"
+                :ghost="editModeEnabled"
+                :disabled="!isOwner"
+                @click="() => {
+                  editModeEnabled = !editModeEnabled
+                  if (!previewReady) {
+                    updatePreview()
+                  }
+                  if (!visualEditorInstance && previewIframeRef?.value) {
+                    visualEditorInstance = initVisualEditor(previewIframeRef.value as HTMLIFrameElement, (info) => {
+                      selectedElement.value = info
+                    })
+                  }
+                  if (visualEditorInstance) {
+                    editModeEnabled ? visualEditorInstance.enable() : visualEditorInstance.disable()
+                  } else {
+                    message.warning('预览尚未准备好，稍后再试')
+                  }
+                }"
+              >
+                可视化编辑
+              </a-button>
+
               <a-button
                 type="primary"
                 @click="sendMessage"
@@ -187,6 +225,9 @@ const route = useRoute()
 const router = useRouter()
 const loginUserStore = useLoginUserStore()
 
+// 可视化编辑器
+import { initVisualEditor, type SelectedElementInfo } from '@/utils/visualEditor'
+
 // Markdown 渲染器配置
 const md: MarkdownIt = new MarkdownIt({
   html: true,
@@ -234,9 +275,23 @@ const lastCursor = ref<string | undefined>(undefined)
 const hasMore = ref(false)
 const loadingHistory = ref(false)
 
-// 预览相关
+/* 预览相关 */
 const previewUrl = ref('')
 const previewReady = ref(false)
+
+/* 可视化编辑相关 */
+const editModeEnabled = ref(false)
+const selectedElement = ref<SelectedElementInfo | null>(null)
+const previewIframeRef = ref<HTMLIFrameElement | null>(null)
+let visualEditorInstance: ReturnType<typeof initVisualEditor> | null = null
+
+// 接收来自预览 iframe 的选中消息（同域 postMessage）
+window.addEventListener('message', (event) => {
+  const data = event.data
+  if (data && data.type === 'visual-edit-select') {
+    selectedElement.value = data.payload as SelectedElementInfo
+  }
+})
 
 // 部署相关
 const deploying = ref(false)
@@ -387,13 +442,22 @@ const sendMessage = async () => {
     return
   }
 
-  const message = userInput.value.trim()
+  const baseMessage = userInput.value.trim()
+
+  // 将选中元素信息拼接进提示词
+  let finalMessage = baseMessage
+  if (selectedElement.value) {
+    const info = selectedElement.value
+    const extra = `\n[选中元素信息]\n- selector: ${info.selector}\n- tag: ${info.tagName}\n- id: ${info.id || ''}\n- classList: ${(info.classList || []).join(' ')}\n- text: ${info.text}\n`
+    finalMessage += extra
+  }
+
   userInput.value = ''
 
   // 添加用户消息
   messages.value.push({
     type: 'user',
-    content: message,
+    content: finalMessage,
   })
 
   // 添加AI消息占位符
@@ -409,7 +473,15 @@ const sendMessage = async () => {
 
   // 开始生成
   isGenerating.value = true
-  await generateCode(message, aiMessageIndex)
+  await generateCode(finalMessage, aiMessageIndex)
+
+  // 发送后清理：退出编辑模式并清除选中
+  editModeEnabled.value = false
+  if (visualEditorInstance) {
+    visualEditorInstance.disable()
+    visualEditorInstance.clearSelected()
+  }
+  selectedElement.value = null
 }
 
 // 生成代码 - 使用 EventSource 处理流式响应
@@ -506,12 +578,37 @@ const handleError = (error: unknown, aiMessageIndex: number) => {
 }
 
 // 更新预览
-const updatePreview = () => {
+const updatePreview = async () => {
   if (appId.value) {
     const codeGenType = appInfo.value?.codeGenType || CodeGenTypeEnum.HTML
     const newPreviewUrl = generatePreviewUrl(codeGenType, appId.value)
     previewUrl.value = newPreviewUrl
     previewReady.value = true
+
+    // 等待 AppPreview 渲染并尝试获取内部 iframe
+    await nextTick()
+    // 兼容：尝试在 AppPreview 组件内查找 iframe（需与组件实现一致）
+    try {
+      const container = document.querySelector('.preview-section') as HTMLElement | null
+      if (container) {
+        const iframe = container.querySelector('iframe') as HTMLIFrameElement | null
+        if (iframe) {
+          previewIframeRef.value = iframe
+          // 初始化可视化编辑器
+          visualEditorInstance = initVisualEditor(iframe, (info) => {
+            selectedElement.value = info
+          })
+          if (editModeEnabled.value) {
+            visualEditorInstance.enable()
+          } else {
+            visualEditorInstance.disable()
+          }
+        }
+      }
+    } catch (e) {
+      // 如果 AppPreview 暂未渲染 iframe，稍后用户切换编辑模式时再尝试
+      console.warn('预览 iframe 获取失败：', e)
+    }
   }
 }
 
@@ -1031,6 +1128,10 @@ onUnmounted(() => {
   padding: 12px;
   border-top: 1px solid #e8e8e8;
   background: white;
+}
+
+.selected-element-alert {
+  margin-bottom: 8px;
 }
 
 .input-wrapper {
