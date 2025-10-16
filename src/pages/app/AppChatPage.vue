@@ -77,7 +77,12 @@
               :message="`已选中元素：${selectedElement.tagName} | ${selectedElement.selector}`"
               :description="selectedElement.text"
               closable
-              @close="() => { selectedElement.value = null; visualEditorInstance?.clearSelected(); }"
+              @close="
+                () => {
+                  selectedElement.value = null
+                  visualEditorInstance?.clearSelected()
+                }
+              "
             />
           </div>
 
@@ -120,12 +125,17 @@
                   }
                   if (visualEditorInstance) {
                     editModeEnabled ? visualEditorInstance.enable() : visualEditorInstance.disable()
+                    if (editModeEnabled) {
+                      message.success('已进入编辑模式，前往右侧预览页面选择元素')
+                    } else {
+                      message.info('已退出编辑模式')
+                    }
                   } else {
                     message.warning('预览尚未准备好，稍后再试')
                   }
                 }"
               >
-                可视化编辑
+                编辑模式
               </a-button>
 
               <a-button
@@ -448,7 +458,9 @@ const sendMessage = async () => {
   let finalMessage = baseMessage
   if (selectedElement.value) {
     const info = selectedElement.value
-    const extra = `\n[选中元素信息]\n- selector: ${info.selector}\n- tag: ${info.tagName}\n- id: ${info.id || ''}\n- classList: ${(info.classList || []).join(' ')}\n- text: ${info.text}\n`
+    const extra = `\n[选中元素信息]\n- selector: ${info.selector}\n- tag: ${info.tagName}\n- id: ${
+      info.id || ''
+    }\n- classList: ${(info.classList || []).join(' ')}\n- text: ${info.text}\n`
     finalMessage += extra
   }
 
@@ -482,6 +494,7 @@ const sendMessage = async () => {
     visualEditorInstance.clearSelected()
   }
   selectedElement.value = null
+  message.info('已退出编辑模式，并已清除选中元素')
 }
 
 // 生成代码 - 使用 EventSource 处理流式响应
