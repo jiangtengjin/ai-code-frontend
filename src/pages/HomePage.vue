@@ -17,7 +17,7 @@ const creating = ref(false)
 const myApps = ref<API.AppVO[]>([])
 const myAppsPage = reactive({
   current: 1,
-  pageSize: 6,
+  pageSize: 8,
   total: 0,
 })
 
@@ -25,7 +25,7 @@ const myAppsPage = reactive({
 const featuredApps = ref<API.AppVO[]>([])
 const featuredAppsPage = reactive({
   current: 1,
-  pageSize: 6,
+  pageSize: 8,
   total: 0,
 })
 
@@ -111,8 +111,6 @@ const loadFeaturedApps = async () => {
   }
 }
 
-
-
 // 页面加载时获取数据
 onMounted(() => {
   loadMyApps()
@@ -150,10 +148,42 @@ onMounted(() => {
 
       <!-- 快捷按钮 -->
       <div class="quick-actions">
-        <a-button type="default" @click="setPrompt('创建一个现代化的个人博客网站，包含文章列表、详情页、分类标签、搜索功能，采用简洁的卡片式设计，支持响应式布局，配色以蓝白为主，整体风格清新文艺')">个人博客网站</a-button>
-        <a-button type="default" @click="setPrompt('设计一个企业官网，包含首页轮播图、公司介绍、产品展示、新闻资讯、联系我们等页面，采用商务风格设计，配色以深蓝和白色为主，布局大气专业，突出企业实力和品牌形象')">企业官网</a-button>
-        <a-button type="default" @click="setPrompt('开发一个在线商城网站，包含商品展示、购物车、订单管理、用户中心等功能，采用现代电商设计风格，配色温暖活泼，支持商品分类筛选、搜索、收藏等功能，界面友好易用')">在线商城</a-button>
-        <a-button type="default" @click="setPrompt('构建一个作品展示网站，适合设计师、摄影师等创意工作者使用，包含作品集展示、个人简介、联系方式等，采用极简主义设计风格，突出作品本身，支持图片瀑布流布局')">作品展示</a-button>
+        <a-button
+          type="default"
+          @click="
+            setPrompt(
+              '创建一个现代化的个人博客网站，包含文章列表、详情页、分类标签、搜索功能，采用简洁的卡片式设计，支持响应式布局，配色以蓝白为主，整体风格清新文艺'
+            )
+          "
+          >个人博客网站</a-button
+        >
+        <a-button
+          type="default"
+          @click="
+            setPrompt(
+              '设计一个企业官网，包含首页轮播图、公司介绍、产品展示、新闻资讯、联系我们等页面，采用商务风格设计，配色以深蓝和白色为主，布局大气专业，突出企业实力和品牌形象'
+            )
+          "
+          >企业官网</a-button
+        >
+        <a-button
+          type="default"
+          @click="
+            setPrompt(
+              '开发一个在线商城网站，包含商品展示、购物车、订单管理、用户中心等功能，采用现代电商设计风格，配色温暖活泼，支持商品分类筛选、搜索、收藏等功能，界面友好易用'
+            )
+          "
+          >在线商城</a-button
+        >
+        <a-button
+          type="default"
+          @click="
+            setPrompt(
+              '构建一个作品展示网站，适合设计师、摄影师等创意工作者使用，包含作品集展示、个人简介、联系方式等，采用极简主义设计风格，突出作品本身，支持图片瀑布流布局'
+            )
+          "
+          >作品展示</a-button
+        >
       </div>
 
       <!-- 我的作品 -->
@@ -199,8 +229,7 @@ onMounted(() => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: 
-    radial-gradient(circle at 30% 20%, rgba(139, 92, 246, 0.08) 0%, transparent 50%),
+  background: radial-gradient(circle at 30% 20%, rgba(139, 92, 246, 0.08) 0%, transparent 50%),
     radial-gradient(circle at 70% 80%, rgba(99, 102, 241, 0.06) 0%, transparent 50%),
     radial-gradient(circle at 20% 60%, rgba(168, 85, 247, 0.05) 0%, transparent 40%);
   pointer-events: none;
@@ -333,8 +362,6 @@ onMounted(() => {
   color: #374151;
   text-align: center;
 }
-
-
 
 /* 响应式设计 */
 @media (max-width: 768px) {

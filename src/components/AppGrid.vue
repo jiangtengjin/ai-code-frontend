@@ -112,7 +112,6 @@ const gridStyle = computed(() => {
 .app-grid-container {
   display: flex;
   flex-direction: column;
-  min-height: 500px; /* 设置容器最小高度 */
 }
 
 .app-grid {
