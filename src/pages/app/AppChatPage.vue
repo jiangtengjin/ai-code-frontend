@@ -199,7 +199,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, nextTick, onUnmounted, computed } from 'vue'
+import { ref, onMounted, nextTick, onUnmounted, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 import { useLoginUserStore } from '@/stores/loginUser'
@@ -575,6 +575,29 @@ const generateCode = async (userMessage: string, aiMessageIndex: number) => {
         handleError(new Error('SSE连接错误'), aiMessageIndex)
       }
     }
+
+    // 处理business-error事件（后端限流等错误）
+    eventSource.addEventListener('business-error', function (event: MessageEvent) {
+      if (streamCompleted) return
+
+      try {
+        const errorData = JSON.parse(event.data)
+        console.error('SSE业务错误事件:', errorData)
+
+        // 显示具体的错误信息
+        const errorMessage = errorData.message || '生成过程中出现错误'
+        messages.value[aiMessageIndex].content = `❌ ${errorMessage}`
+        messages.value[aiMessageIndex].loading = false
+        message.error(errorMessage)
+
+        streamCompleted = true
+        isGenerating.value = false
+        eventSource?.close()
+      } catch (parseError) {
+        console.error('解析错误事件失败:', parseError, '原始数据:', event.data)
+        handleError(new Error('服务器返回错误'), aiMessageIndex)
+      }
+    })
   } catch (error) {
     console.error('创建 EventSource 失败：', error)
     handleError(error, aiMessageIndex)
@@ -771,6 +794,33 @@ onMounted(async () => {
     await sendInitialMessage(appInfo.value.initPrompt)
   }
 })
+
+// 监听路由参数变化，切换应用时重新初始化
+watch(
+  () => route.params.id,
+  async (newId) => {
+    const id = newId as string
+    if (!id) {
+      message.error('应用ID不存在')
+      router.push('/')
+      return
+    }
+    // 更新当前 appId
+    appId.value = id
+
+    // 重置会话与历史状态
+    messages.value = []
+    lastCursor.value = undefined
+    hasMore.value = false
+    loadingHistory.value = false
+    hasInitialConversation.value = false
+
+    // 重新拉取应用信息与历史，并更新预览
+    await fetchAppInfo()
+    await loadHistoryFirstPage()
+    updatePreview()
+  }
+)
 
 // 清理资源
 onUnmounted(() => {
