@@ -33,6 +33,7 @@
         <a-button type="primary" html-type="submit" style="width: 100%">注册</a-button>
       </a-form-item>
     </a-form>
+    <Vcode :show="isShow" @success="onVcodeSuccess" @close="onVcodeClose" />
   </div>
 </template>
 
@@ -40,7 +41,8 @@
 import { useRouter } from 'vue-router'
 import { userRegister } from '@/api/userController.ts'
 import { message } from 'ant-design-vue'
-import { reactive } from 'vue'
+import { reactive, ref } from 'vue'
+import Vcode from 'vue3-puzzle-vcode'
 
 const router = useRouter()
 
@@ -49,6 +51,12 @@ const formState = reactive<API.UserRegisterRequest>({
   userPassword: '',
   checkPassword: '',
 })
+
+/**
+ * 滑块验证码显示状态与待提交数据
+ */
+const isShow = ref(false)
+let pendingValues: API.UserRegisterRequest | null = null
 
 /**
  * 验证确认密码
@@ -69,7 +77,20 @@ const validateCheckPassword = (rule: unknown, value: string, callback: (error?: 
  * @param values
  */
 const handleSubmit = async (values: API.UserRegisterRequest) => {
-  const res = await userRegister(values)
+  // 暂存表单数据，先弹出滑块验证码
+  pendingValues = values
+  isShow.value = true
+}
+
+/**
+ * 验证码通过后，真正执行注册
+ */
+const onVcodeSuccess = async () => {
+  isShow.value = false
+  if (!pendingValues) {
+    return
+  }
+  const res = await userRegister(pendingValues)
   // 注册成功，跳转到登录页面
   if (res.data.code === 0) {
     message.success('注册成功')
@@ -80,6 +101,16 @@ const handleSubmit = async (values: API.UserRegisterRequest) => {
   } else {
     message.error('注册失败，' + res.data.message)
   }
+  // 重置暂存
+  pendingValues = null
+}
+
+/**
+ * 用户关闭或验证失败，重置状态
+ */
+const onVcodeClose = () => {
+  isShow.value = false
+  pendingValues = null
 }
 </script>
 
